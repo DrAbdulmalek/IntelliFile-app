@@ -7,8 +7,6 @@ PR-08 من development-roadmap-v1.0 (IFM Phase C)
 """
 from __future__ import annotations
 
-from typing import List, Optional
-
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QFrame,
@@ -17,7 +15,6 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-
 
 # ─── عناصر التنقل ──────────────────────────────────────────────────────────
 
@@ -41,7 +38,7 @@ class Sidebar(QFrame):
 
     nav_clicked = Signal(str)
 
-    def __init__(self, parent: Optional[QWidget] = None):
+    def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
         self.setObjectName("Sidebar")
         self.setFixedWidth(220)
@@ -100,5 +97,5 @@ class Sidebar(QFrame):
             btn.style().polish(btn)
 
     @property
-    def nav_ids(self) -> List[str]:
+    def nav_ids(self) -> list[str]:
         return [nid for nid, _, _ in NAV_ITEMS]

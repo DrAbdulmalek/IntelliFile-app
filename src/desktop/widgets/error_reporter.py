@@ -17,9 +17,8 @@ PR-09 من development-roadmap-v1.0 (IFM Phase C — Desktop UX)
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
-from typing import List, Optional
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor
@@ -71,10 +70,10 @@ class ErrorReporter(QFrame):
 
     errors_changed = Signal(int, int)
 
-    def __init__(self, parent: Optional[QWidget] = None):
+    def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
         self.setObjectName("ErrorReporter")
-        self._records: List[ErrorRecord] = []
+        self._records: list[ErrorRecord] = []
         self._max_records = 500  # حد أقصى لمنع التضخّم
 
         layout = QHBoxLayout(self)
@@ -153,7 +152,7 @@ class ErrorReporter(QFrame):
     def total_count(self) -> int:
         return len(self._records)
 
-    def records(self) -> List[ErrorRecord]:
+    def records(self) -> list[ErrorRecord]:
         """يرجع نسخة من السجلات (الأحدث آخرًا)"""
         return list(self._records)
 
@@ -205,7 +204,7 @@ class ErrorReporter(QFrame):
 class ErrorDetailsDialog(QDialog):
     """نافذة عرض كل الأخطاء"""
 
-    def __init__(self, records: List[ErrorRecord], parent: Optional[QWidget] = None):
+    def __init__(self, records: list[ErrorRecord], parent: QWidget | None = None):
         super().__init__(parent)
         self.setWindowTitle("سجل الأخطاء والتحذيرات")
         self.resize(720, 420)
@@ -255,4 +254,4 @@ class ErrorDetailsDialog(QDialog):
         layout.addLayout(btn_row)
 
 
-__all__ = ["ErrorReporter", "ErrorRecord", "ErrorDetailsDialog"]
+__all__ = ["ErrorDetailsDialog", "ErrorRecord", "ErrorReporter"]

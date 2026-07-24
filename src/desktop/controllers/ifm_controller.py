@@ -22,16 +22,16 @@ PR-09 من development-roadmap-v1.0 (progress + cancellation + settings)
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, List, Optional, Union
 
 from PySide6.QtCore import QObject, Signal
 
-from ...core.action_log import ActionLog, ActionLogEntry
+from ...core.action_log import ActionLog
 from ...core.file_inventory import FileInventory, InventoryStats
 from ...core.rule_engine import RuleEngine
-from ...core.rule_schemas import DryRunPlan, Ruleset, UndoEntry
+from ...core.rule_schemas import DryRunPlan, Ruleset
 from ...core.undo_log import UndoLog
 from ...db.schemas import FileRecord
 from ..settings import IFMSettings
@@ -51,7 +51,7 @@ class ProgressToken:
     """
     op_id: str = ""
     _cancelled: bool = False
-    _update_callback: Optional[Callable[[int, int, str], None]] = None
+    _update_callback: Callable[[int, int, str], None] | None = None
 
     def is_cancelled(self) -> bool:
         return self._cancelled
@@ -66,7 +66,7 @@ class ProgressToken:
 
 # ─── Helpers ────────────────────────────────────────────────────────────────
 
-def _load_ruleset(path: Optional[Union[str, Path]]) -> Ruleset:
+def _load_ruleset(path: str | Path | None) -> Ruleset:
     """يحمّل Ruleset من ملف YAML، أو يُرجع Ruleset فارغ لو None"""
     if path is None:
         return Ruleset(name="Empty", description="لا قواعد محمّلة", rules=[])
@@ -84,7 +84,7 @@ class IFMStateSnapshot:
     """لقطة من حالة IFM لعرضها في الـ status bar"""
     inventory_count: int = 0
     last_scan_dir: str = ""
-    last_scan_stats: Optional[InventoryStats] = None
+    last_scan_stats: InventoryStats | None = None
     ruleset_name: str = ""
     ruleset_rules_count: int = 0
     plan_actions_count: int = 0
@@ -167,12 +167,12 @@ class IFMController(QObject):
 
     def __init__(
         self,
-        base_dir: Union[str, Path],
-        ruleset_path: Optional[Union[str, Path]] = None,
-        undo_log_path: Optional[Union[str, Path]] = None,
-        action_log_path: Optional[Union[str, Path]] = None,
-        settings: Optional[IFMSettings] = None,
-        parent: Optional[QObject] = None,
+        base_dir: str | Path,
+        ruleset_path: str | Path | None = None,
+        undo_log_path: str | Path | None = None,
+        action_log_path: str | Path | None = None,
+        settings: IFMSettings | None = None,
+        parent: QObject | None = None,
     ):
         super().__init__(parent)
         self.base_dir = Path(base_dir)
@@ -189,10 +189,10 @@ class IFMController(QObject):
         self.action_log = ActionLog(action_log_path)
 
         # ─── State ───────────────────────────────────────────────────────
-        self._records: List[FileRecord] = []
-        self._last_plan: Optional[DryRunPlan] = None
+        self._records: list[FileRecord] = []
+        self._last_plan: DryRunPlan | None = None
         self._last_scan_dir: str = ""
-        self._last_scan_stats: Optional[InventoryStats] = None
+        self._last_scan_stats: InventoryStats | None = None
 
         # ─── Watcher (lazy) ──────────────────────────────────────────────
         self._watcher = None  # FileWatcher — يُنشأ عند start_watcher
@@ -224,7 +224,7 @@ class IFMController(QObject):
 
     # ─── FileInventory ──────────────────────────────────────────────────────
 
-    def scan_directory(self, directory: Optional[Union[str, Path]] = None) -> None:
+    def scan_directory(self, directory: str | Path | None = None) -> None:
         """يفحص مجلدًا ويبني قائمة FileRecord
 
         Args:
@@ -245,7 +245,7 @@ class IFMController(QObject):
         self.scan_started.emit(str(target))
         try:
             stats = InventoryStats()
-            records: List[FileRecord] = []
+            records: list[FileRecord] = []
             for record in self.inventory.scan(str(target), recursive=True):
                 # التحقّق من الإلغاء
                 if token.is_cancelled():
@@ -289,12 +289,12 @@ class IFMController(QObject):
             self._finish_operation("scan", success=False, message=str(e))
 
     @property
-    def records(self) -> List[FileRecord]:
+    def records(self) -> list[FileRecord]:
         return list(self._records)
 
     # ─── RuleEngine ─────────────────────────────────────────────────────────
 
-    def reload_ruleset(self, path: Optional[Union[str, Path]] = None) -> None:
+    def reload_ruleset(self, path: str | Path | None = None) -> None:
         """يعيد تحميل القواعد من ملف YAML"""
         target = path or self.ruleset_path
         if target is None:
@@ -362,10 +362,10 @@ class IFMController(QObject):
             self._finish_operation("dry_run", success=False, message=str(e))
 
     @property
-    def last_plan(self) -> Optional[DryRunPlan]:
+    def last_plan(self) -> DryRunPlan | None:
         return self._last_plan
 
-    def execute(self, plan: Optional[DryRunPlan] = None, confirm_destructive: bool = False) -> None:
+    def execute(self, plan: DryRunPlan | None = None, confirm_destructive: bool = False) -> None:
         """ينفّذ خطة محاكاة (افتراضيًا: آخر خطة جاهزة)
 
         Notes:
@@ -405,16 +405,13 @@ class IFMController(QObject):
             if undo_path:
                 self.undo_log.load()
             else:
-                from ...core.rule_schemas import UndoEntry
                 for entry in entries:
                     if entry not in self.undo_log.entries:
                         self.undo_log.append(entry)
 
             # كل إجراء نُفّذ يُسجَّل في ActionLog تلقائيًا (من RuleEngine)
             # نبثّ إشارات لكل entry جديد
-            executed_count = 0
-            for _ in entries:
-                executed_count += 1
+            for executed_count, _ in enumerate(entries, start=1):
                 # تحديث التقدّم كل 5 إجراءات
                 if executed_count % 5 == 0 or executed_count == total_actions:
                     token.update(
@@ -556,11 +553,11 @@ class IFMController(QObject):
         self.action_log_cleared.emit()
         self._emit_state()
 
-    def export_action_log_json(self, output_path: Union[str, Path]) -> str:
+    def export_action_log_json(self, output_path: str | Path) -> str:
         """يصدّر السجل المرئي إلى JSON"""
         return self.action_log.export_json(output_path)
 
-    def export_action_log_html(self, output_path: Union[str, Path]) -> str:
+    def export_action_log_html(self, output_path: str | Path) -> str:
         """يصدّر السجل المرئي إلى HTML"""
         return self.action_log.export_html(output_path)
 
@@ -576,7 +573,7 @@ class IFMController(QObject):
 
     def start_watcher(
         self,
-        watch_paths: Optional[List[str]] = None,
+        watch_paths: list[str] | None = None,
         recursive: bool = True,
         auto_dry_run: bool = True,
     ) -> None:

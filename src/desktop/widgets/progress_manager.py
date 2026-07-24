@@ -25,7 +25,6 @@ PR-09 من development-roadmap-v1.0 (IFM Phase C — Desktop UX)
 from __future__ import annotations
 
 import logging
-from typing import Dict, Optional
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
@@ -46,7 +45,7 @@ logger = logging.getLogger(__name__)
 class _OpState:
     """حالة عملية واحدة قيد التقدّم"""
 
-    __slots__ = ("op_id", "current", "total", "message", "cancelled", "indeterminate")
+    __slots__ = ("cancelled", "current", "indeterminate", "message", "op_id", "total")
 
     def __init__(
         self,
@@ -80,10 +79,10 @@ class ProgressManager(QFrame):
     started = Signal(str)
     finished = Signal(str, bool, str)
 
-    def __init__(self, parent: Optional[QWidget] = None):
+    def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
         self.setObjectName("ProgressManager")
-        self._ops: Dict[str, _OpState] = {}
+        self._ops: dict[str, _OpState] = {}
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(8, 4, 8, 4)
@@ -147,8 +146,8 @@ class ProgressManager(QFrame):
         self,
         op_id: str,
         current: int,
-        total: Optional[int] = None,
-        message: Optional[str] = None,
+        total: int | None = None,
+        message: str | None = None,
     ) -> None:
         """يحدّث تقدّم العملية
 

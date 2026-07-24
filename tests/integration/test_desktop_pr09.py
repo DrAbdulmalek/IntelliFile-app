@@ -15,11 +15,7 @@ PR-09 من development-roadmap-v1.0 (IFM Phase C — Desktop UX)
 """
 from __future__ import annotations
 
-import json
-import os
-import tempfile
 import time
-from pathlib import Path
 
 import pytest
 
@@ -311,8 +307,8 @@ class TestRecentActionsWidget:
         assert w is not None
 
     def test_set_entries_truncates_to_max(self, qapp):
-        from src.desktop.widgets.recent_actions import RecentActionsWidget
         from src.core.action_log import ActionLogEntry
+        from src.desktop.widgets.recent_actions import RecentActionsWidget
 
         w = RecentActionsWidget(max_items=3)
         entries = [
@@ -323,8 +319,8 @@ class TestRecentActionsWidget:
         assert w._list.count() == 3
 
     def test_add_entry_inserts_at_top(self, qapp):
-        from src.desktop.widgets.recent_actions import RecentActionsWidget
         from src.core.action_log import ActionLogEntry
+        from src.desktop.widgets.recent_actions import RecentActionsWidget
 
         w = RecentActionsWidget(max_items=5)
         e1 = ActionLogEntry(entry_id=1, action_type="move", file_path="a.txt", success=True)
@@ -336,8 +332,8 @@ class TestRecentActionsWidget:
         assert "copy" in first_item.text()
 
     def test_clear_view(self, qapp):
-        from src.desktop.widgets.recent_actions import RecentActionsWidget
         from src.core.action_log import ActionLogEntry
+        from src.desktop.widgets.recent_actions import RecentActionsWidget
 
         w = RecentActionsWidget(max_items=5)
         w.set_entries([
@@ -456,11 +452,11 @@ class TestFilePreviewPanel:
 
     def test_preview_image_file(self, qapp, tmp_path):
         """يختبر معاينة صورة حقيقية عبر QPixmap"""
-        from src.desktop.panels.preview_panel import FilePreviewPanel
-
         # نولّد صورة PNG صغيرة عبر PySide6.QtGui
         from PySide6.QtCore import QSize
-        from PySide6.QtGui import QImage, QColor, QPainter
+        from PySide6.QtGui import QColor, QImage
+
+        from src.desktop.panels.preview_panel import FilePreviewPanel
 
         img_path = tmp_path / "test.png"
         img = QImage(QSize(64, 64), QImage.Format_ARGB32)
@@ -514,9 +510,10 @@ class TestSettingsPanel:
         assert s.auto_organize is True
 
     def test_reset_restores_defaults(self, qapp):
+        from PySide6.QtWidgets import QMessageBox
+
         from src.desktop.panels.settings_panel import SettingsPanel
         from src.desktop.settings import IFMSettings
-        from PySide6.QtWidgets import QMessageBox
 
         # نتجنّب النافذة المنبثقة بمونكي-بتش
         original = QMessageBox.question
@@ -531,9 +528,10 @@ class TestSettingsPanel:
             QMessageBox.question = original
 
     def test_save_emits_settings_changed(self, qapp, tmp_path, monkeypatch):
+        from PySide6.QtWidgets import QMessageBox
+
         from src.desktop.panels.settings_panel import SettingsPanel
         from src.desktop.settings import IFMSettings
-        from PySide6.QtWidgets import QMessageBox
 
         # تجنّب النوافذ المنبثقة
         monkeypatch.setattr(QMessageBox, "information", staticmethod(lambda *a, **kw: None))
@@ -553,9 +551,10 @@ class TestSettingsPanel:
         assert events[0].dark_mode is False
 
     def test_theme_change_emitted_on_save(self, qapp, monkeypatch):
+        from PySide6.QtWidgets import QMessageBox
+
         from src.desktop.panels.settings_panel import SettingsPanel
         from src.desktop.settings import IFMSettings
-        from PySide6.QtWidgets import QMessageBox
 
         monkeypatch.setattr(QMessageBox, "information", staticmethod(lambda *a, **kw: None))
 
@@ -574,7 +573,7 @@ class TestSettingsPanel:
 
 class TestMainWindowPR09:
     def test_has_preview_and_settings_panels(self, qapp, tmp_path):
-        from src.desktop import IFMMainWindow, IFMController, init_app_theme
+        from src.desktop import IFMController, IFMMainWindow, init_app_theme
         init_app_theme(qapp, mode="dark", rtl=True)
         c = IFMController(base_dir=tmp_path, ruleset_path=None)
         w = IFMMainWindow(controller=c, base_dir=str(tmp_path))
@@ -584,7 +583,7 @@ class TestMainWindowPR09:
         assert w.settings_panel is not None
 
     def test_status_bar_has_progress_manager(self, qapp, tmp_path):
-        from src.desktop import IFMMainWindow, IFMController, init_app_theme
+        from src.desktop import IFMController, IFMMainWindow, init_app_theme
         init_app_theme(qapp, mode="dark", rtl=True)
         c = IFMController(base_dir=tmp_path, ruleset_path=None)
         w = IFMMainWindow(controller=c, base_dir=str(tmp_path))
@@ -592,8 +591,9 @@ class TestMainWindowPR09:
         assert w.status_bar.error_reporter is not None
 
     def test_inventory_selection_updates_preview(self, qapp, tmp_with_files):
-        from src.desktop import IFMMainWindow, IFMController, init_app_theme
         from PySide6.QtCore import QItemSelectionModel
+
+        from src.desktop import IFMController, IFMMainWindow, init_app_theme
         init_app_theme(qapp, mode="dark", rtl=True)
         c = IFMController(base_dir=tmp_with_files, ruleset_path=None)
         w = IFMMainWindow(controller=c, base_dir=str(tmp_with_files))
@@ -617,7 +617,7 @@ class TestMainWindowPR09:
             assert "📁" in w.preview_panel._name_label.text()
 
     def test_progress_updates_during_scan(self, qapp, tmp_with_files):
-        from src.desktop import IFMMainWindow, IFMController, init_app_theme
+        from src.desktop import IFMController, IFMMainWindow, init_app_theme
         init_app_theme(qapp, mode="dark", rtl=True)
         c = IFMController(base_dir=tmp_with_files, ruleset_path=None)
         w = IFMMainWindow(controller=c, base_dir=str(tmp_with_files))
@@ -633,7 +633,12 @@ class TestMainWindowPR09:
         assert not c.is_operation_active("scan")
 
     def test_settings_panel_connected_to_controller(self, qapp, tmp_path):
-        from src.desktop import IFMMainWindow, IFMController, IFMSettings, init_app_theme
+        from src.desktop import (
+            IFMController,
+            IFMMainWindow,
+            IFMSettings,
+            init_app_theme,
+        )
         init_app_theme(qapp, mode="dark", rtl=True)
         c = IFMController(base_dir=tmp_path, ruleset_path=None)
         w = IFMMainWindow(controller=c, base_dir=str(tmp_path))
@@ -648,7 +653,7 @@ class TestMainWindowPR09:
         assert c.settings.auto_organize is True
 
     def test_cancel_menu_action(self, qapp, tmp_path):
-        from src.desktop import IFMMainWindow, IFMController, init_app_theme
+        from src.desktop import IFMController, IFMMainWindow, init_app_theme
         init_app_theme(qapp, mode="dark", rtl=True)
         c = IFMController(base_dir=tmp_path, ruleset_path=None)
         w = IFMMainWindow(controller=c, base_dir=str(tmp_path))
@@ -675,7 +680,7 @@ class TestMainWindowPR09:
 
 class TestPR09EndToEnd:
     def test_scan_select_preview_settings(self, qapp, tmp_with_files, default_ruleset_path):
-        from src.desktop import IFMMainWindow, IFMController, init_app_theme
+        from src.desktop import IFMController, IFMMainWindow, init_app_theme
         init_app_theme(qapp, mode="dark", rtl=True)
         c = IFMController(
             base_dir=tmp_with_files, ruleset_path=default_ruleset_path
@@ -715,8 +720,9 @@ class TestPR09EndToEnd:
 
     def test_error_reporter_collects_scan_failures(self, qapp, tmp_path, monkeypatch):
         """عند فشل فحص مجلد غير موجود، يجب أن يُسجَّل الخطأ في ErrorReporter"""
-        from src.desktop import IFMMainWindow, IFMController, init_app_theme
         from PySide6.QtWidgets import QMessageBox
+
+        from src.desktop import IFMController, IFMMainWindow, init_app_theme
         # تجنّب النوافذ المنبثقة (QMessageBox.warning يُغلق الاختبار في headless)
         monkeypatch.setattr(QMessageBox, "warning", staticmethod(lambda *a, **kw: None))
         monkeypatch.setattr(QMessageBox, "information", staticmethod(lambda *a, **kw: None))
@@ -739,18 +745,18 @@ class TestPR09EndToEnd:
 class TestExportsPR09:
     def test_all_pr09_classes_exported(self):
         from src.desktop import (
-            IFMMainWindow,
-            IFMController,
-            IFMStateSnapshot,
-            ProgressToken,
-            IFMSettings,
-            FilePreviewPanel,
-            SettingsPanel,
-            ProgressManager,
-            RecentActionsWidget,
-            ErrorReporter,
-            ErrorRecord,
             ErrorDetailsDialog,
+            ErrorRecord,
+            ErrorReporter,
+            FilePreviewPanel,
+            IFMController,
+            IFMMainWindow,
+            IFMSettings,
+            IFMStateSnapshot,
+            ProgressManager,
+            ProgressToken,
+            RecentActionsWidget,
+            SettingsPanel,
         )
         # كلها فئات
         for cls in [

@@ -18,14 +18,12 @@ import logging
 import mimetypes
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Set
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap, QTextCursor
 from PySide6.QtWidgets import (
     QFrame,
     QGroupBox,
-    QHBoxLayout,
     QLabel,
     QPlainTextEdit,
     QScrollArea,
@@ -40,7 +38,7 @@ logger = logging.getLogger(__name__)
 # ─── ثوابت ─────────────────────────────────────────────────────────────────
 
 # امتدادات تُعتبر نصية للمعاينة
-TEXT_EXTENSIONS: Set[str] = {
+TEXT_EXTENSIONS: set[str] = {
     ".txt", ".md", ".markdown", ".rst",
     ".csv", ".tsv", ".log",
     ".py", ".js", ".ts", ".jsx", ".tsx", ".java", ".c", ".cpp", ".h", ".hpp",
@@ -53,7 +51,7 @@ TEXT_EXTENSIONS: Set[str] = {
 }
 
 # امتدادات صور يدعمها QPixmap مباشرة
-IMAGE_EXTENSIONS: Set[str] = {
+IMAGE_EXTENSIONS: set[str] = {
     ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg", ".ico", ".tiff", ".tif",
 }
 
@@ -86,11 +84,11 @@ class FilePreviewPanel(QWidget):
       - رسالة "غير متاح" للأنواع الأخرى
     """
 
-    def __init__(self, max_text_bytes: int = 64 * 1024, parent: Optional[QWidget] = None):
+    def __init__(self, max_text_bytes: int = 64 * 1024, parent: QWidget | None = None):
         super().__init__(parent)
         self.setObjectName("FilePreviewPanel")
         self._max_text_bytes = max_text_bytes
-        self._current_path: Optional[Path] = None
+        self._current_path: Path | None = None
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 16, 16, 16)
@@ -311,4 +309,4 @@ class FilePreviewPanel(QWidget):
         self._no_file_label.setVisible(False)
 
 
-__all__ = ["FilePreviewPanel", "TEXT_EXTENSIONS", "IMAGE_EXTENSIONS"]
+__all__ = ["IMAGE_EXTENSIONS", "TEXT_EXTENSIONS", "FilePreviewPanel"]

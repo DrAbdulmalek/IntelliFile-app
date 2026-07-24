@@ -13,7 +13,6 @@ import argparse
 import logging
 import sys
 from pathlib import Path
-from typing import Optional
 
 from PySide6.QtWidgets import QApplication
 
@@ -23,7 +22,7 @@ from .settings import IFMSettings
 from .theme import init_app_theme
 
 
-def parse_args(argv: Optional[list] = None) -> argparse.Namespace:
+def parse_args(argv: list | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="IntelliFile Desktop")
     parser.add_argument(
         "--base-dir",
@@ -64,7 +63,7 @@ def parse_args(argv: Optional[list] = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def main(argv: Optional[list] = None) -> int:
+def main(argv: list | None = None) -> int:
     args = parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 

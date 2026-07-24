@@ -18,7 +18,6 @@ PR-09 من development-roadmap-v1.0 (progress + previews + settings)
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 from PySide6.QtCore import Qt, QTimer
 from PySide6.QtGui import QAction, QKeySequence
@@ -32,7 +31,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .controllers.ifm_controller import IFMController, IFMStateSnapshot, ProgressToken
+from .controllers.ifm_controller import IFMController, IFMStateSnapshot
 from .panels.action_log_panel import ActionLogPanel
 from .panels.inventory_panel import InventoryPanel
 from .panels.preview_panel import FilePreviewPanel
@@ -41,7 +40,7 @@ from .panels.settings_panel import SettingsPanel
 from .panels.undo_log_panel import UndoLogPanel
 from .panels.watcher_panel import WatcherPanel
 from .settings import IFMSettings
-from .theme import apply_theme, apply_rtl, init_app_theme, toggle_theme
+from .theme import toggle_theme
 from .widgets.sidebar import Sidebar
 from .widgets.status_bar import IFMStatusBar
 
@@ -51,9 +50,9 @@ class IFMMainWindow(QMainWindow):
 
     def __init__(
         self,
-        controller: Optional[IFMController] = None,
-        base_dir: Optional[str] = None,
-        parent: Optional[QWidget] = None,
+        controller: IFMController | None = None,
+        base_dir: str | None = None,
+        parent: QWidget | None = None,
     ):
         super().__init__(parent)
         self.setWindowTitle("IntelliFile — منظّم الملفات الذكي")

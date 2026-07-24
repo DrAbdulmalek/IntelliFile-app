@@ -28,9 +28,8 @@ PR-09 من development-roadmap-v1.0 (IFM Phase C — Desktop UX)
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Signal
 from PySide6.QtWidgets import (
     QCheckBox,
     QGroupBox,
@@ -63,7 +62,7 @@ class SettingsPanel(QWidget):
     theme_change_requested = Signal(str)  # "dark" | "light"
     rtl_change_requested = Signal(bool)
 
-    def __init__(self, settings: Optional[IFMSettings] = None, parent: Optional[QWidget] = None):
+    def __init__(self, settings: IFMSettings | None = None, parent: QWidget | None = None):
         super().__init__(parent)
         self.setObjectName("SettingsPanel")
         self._settings = settings or IFMSettings()

@@ -12,9 +12,6 @@ PR-09 من development-roadmap-v1.0 (progress + error reporting)
 """
 from __future__ import annotations
 
-from typing import Optional
-
-from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QLabel, QStatusBar
 
 from .error_reporter import ErrorReporter

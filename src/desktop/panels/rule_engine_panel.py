@@ -10,8 +10,6 @@ PR-08 من development-roadmap-v1.0 (IFM Phase C)
 """
 from __future__ import annotations
 
-from typing import Optional
-
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -41,7 +39,7 @@ class RuleEnginePanel(QWidget):
     dry_run_requested = Signal()
     execute_requested = Signal(bool)
 
-    def __init__(self, parent: Optional[QWidget] = None):
+    def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
 
         layout = QVBoxLayout(self)

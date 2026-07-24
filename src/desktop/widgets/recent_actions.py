@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import List, Optional
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
@@ -90,11 +89,11 @@ class RecentActionsWidget(QFrame):
     action_clicked = Signal(int)
     show_all_clicked = Signal()
 
-    def __init__(self, max_items: int = 10, parent: Optional[QWidget] = None):
+    def __init__(self, max_items: int = 10, parent: QWidget | None = None):
         super().__init__(parent)
         self.setObjectName("RecentActionsWidget")
         self._max_items = max_items
-        self._entries: List = []
+        self._entries: list = []
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)

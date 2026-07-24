@@ -17,9 +17,9 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -87,25 +87,25 @@ class IFMSettings:
 
     # ─── Serialize / Deserialize ───────────────────────────────────────────
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
     def to_json(self, indent: int = 2) -> str:
         return json.dumps(self.to_dict(), indent=indent, ensure_ascii=False)
 
     @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> "IFMSettings":
+    def from_dict(cls, d: dict[str, Any]) -> IFMSettings:
         """يبني IFMSettings من قاموس — يتجاهل المفاتيح غير المعروفة"""
         valid = {k: v for k, v in d.items() if k in cls.__dataclass_fields__}
         return cls(**valid)
 
     @classmethod
-    def from_json(cls, json_str: str) -> "IFMSettings":
+    def from_json(cls, json_str: str) -> IFMSettings:
         return cls.from_dict(json.loads(json_str))
 
     # ─── Persistence ───────────────────────────────────────────────────────
 
-    def save(self, path: Optional[Path] = None) -> Path:
+    def save(self, path: Path | None = None) -> Path:
         """يحفظ الإعدادات إلى ملف JSON
 
         Args:
@@ -124,7 +124,7 @@ class IFMSettings:
         return target
 
     @classmethod
-    def load(cls, path: Optional[Path] = None) -> "IFMSettings":
+    def load(cls, path: Path | None = None) -> IFMSettings:
         """يحمّل الإعدادات من ملف JSON — يُرجع افتراضي لو فشل
 
         Args:
@@ -161,8 +161,8 @@ class IFMSettings:
 
 
 __all__ = [
-    "IFMSettings",
+    "DEFAULT_MAX_TEXT_PREVIEW_BYTES",
     "DEFAULT_SETTINGS_PATH",
     "DEFAULT_THUMBNAIL_SIZE",
-    "DEFAULT_MAX_TEXT_PREVIEW_BYTES",
+    "IFMSettings",
 ]

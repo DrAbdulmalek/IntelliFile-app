@@ -11,66 +11,66 @@
   - Widgets: Sidebar, IFMStatusBar, WatcherIndicator,
              ProgressManager, RecentActionsWidget, ErrorReporter
 """
-from .main_window import IFMMainWindow
 from .controllers.ifm_controller import IFMController, IFMStateSnapshot, ProgressToken
-from .settings import IFMSettings
-from .theme import (
-    apply_theme,
-    apply_rtl,
-    toggle_theme,
-    init_app_theme,
-    LIGHT_QSS,
-    DARK_QSS,
-    LIGHT_PALETTE,
-    DARK_PALETTE,
-)
+from .main_window import IFMMainWindow
+from .panels.action_log_panel import ActionLogPanel
 from .panels.inventory_panel import InventoryPanel
 from .panels.preview_panel import FilePreviewPanel
 from .panels.rule_engine_panel import RuleEnginePanel
-from .panels.action_log_panel import ActionLogPanel
+from .panels.settings_panel import SettingsPanel
 from .panels.undo_log_panel import UndoLogPanel
 from .panels.watcher_panel import WatcherPanel
-from .panels.settings_panel import SettingsPanel
-from .widgets.sidebar import Sidebar, NAV_ITEMS
-from .widgets.status_bar import IFMStatusBar
-from .widgets.watcher_indicator import WatcherIndicator
+from .settings import IFMSettings
+from .theme import (
+    DARK_PALETTE,
+    DARK_QSS,
+    LIGHT_PALETTE,
+    LIGHT_QSS,
+    apply_rtl,
+    apply_theme,
+    init_app_theme,
+    toggle_theme,
+)
+from .widgets.error_reporter import ErrorDetailsDialog, ErrorRecord, ErrorReporter
 from .widgets.progress_manager import ProgressManager
 from .widgets.recent_actions import RecentActionsWidget
-from .widgets.error_reporter import ErrorReporter, ErrorRecord, ErrorDetailsDialog
+from .widgets.sidebar import NAV_ITEMS, Sidebar
+from .widgets.status_bar import IFMStatusBar
+from .widgets.watcher_indicator import WatcherIndicator
 
 __all__ = [
     # Main
-    "IFMMainWindow",
     "IFMController",
+    "IFMMainWindow",
     "IFMStateSnapshot",
     "ProgressToken",
     # Settings
     "IFMSettings",
     # Theme
-    "apply_theme",
-    "apply_rtl",
-    "toggle_theme",
-    "init_app_theme",
-    "LIGHT_QSS",
+    "DARK_PALETTE",
     "DARK_QSS",
     "LIGHT_PALETTE",
-    "DARK_PALETTE",
+    "LIGHT_QSS",
+    "apply_rtl",
+    "apply_theme",
+    "init_app_theme",
+    "toggle_theme",
     # Panels
-    "InventoryPanel",
-    "FilePreviewPanel",
-    "RuleEnginePanel",
     "ActionLogPanel",
+    "FilePreviewPanel",
+    "InventoryPanel",
+    "RuleEnginePanel",
+    "SettingsPanel",
     "UndoLogPanel",
     "WatcherPanel",
-    "SettingsPanel",
     # Widgets
-    "Sidebar",
-    "NAV_ITEMS",
+    "ErrorDetailsDialog",
+    "ErrorRecord",
+    "ErrorReporter",
     "IFMStatusBar",
-    "WatcherIndicator",
+    "NAV_ITEMS",
     "ProgressManager",
     "RecentActionsWidget",
-    "ErrorReporter",
-    "ErrorRecord",
-    "ErrorDetailsDialog",
+    "Sidebar",
+    "WatcherIndicator",
 ]
