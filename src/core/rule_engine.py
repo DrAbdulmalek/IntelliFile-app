@@ -24,7 +24,7 @@ import os
 import shutil
 from datetime import datetime
 from pathlib import Path
-from typing import Iterable, List, Optional, Union
+from typing import TYPE_CHECKING, Iterable, List, Optional, Union
 
 from ..db.schemas import FileRecord, FileMetadata
 from .rule_schemas import (
@@ -32,6 +32,11 @@ from .rule_schemas import (
     UndoEntry,
 )
 from .file_inventory import FileInventory
+
+if TYPE_CHECKING:
+    # استيراد للأغراض النوعية فقط (لتجنّب الاستيراد الدائري)
+    from .action_log import ActionLog
+    from .safe_mover import SafeMover
 
 logger = logging.getLogger(__name__)
 
@@ -121,6 +126,8 @@ class RuleEngine:
         *,
         undo_log_path: Optional[Union[str, Path]] = None,
         confirm_destructive: bool = False,
+        action_log: Optional["ActionLog"] = None,
+        use_safe_mover: bool = True,
     ) -> List[UndoEntry]:
         """ينفّذ خطة محاكاة مع تسجيل كل إجراء للتراجع
 
@@ -130,6 +137,11 @@ class RuleEngine:
                           لا تُكتب السجلات على القرص (تُرجع فقط).
             confirm_destructive: تأكيد صريح للإجراءات التدميرية (delete_flag).
                                 افتراضيًا False — لا تُنفَّذ الإجراءات التدميرية.
+            action_log: ActionLog اختياري لتسجيل كل إجراء للعرض المرئي (PR-07).
+                        لو None، لا يُسجّل في السجل المرئي.
+            use_safe_mover: لو True (افتراضيًا)، تُمرَّر عمليات move/copy عبر
+                           SafeMover مع تحقّق SHA-256 ومعالجة sidecar (PR-07).
+                           لو False، يُستخدم السلوك القديم (shutil مباشرة).
 
         Returns:
             List[UndoEntry]: سجل التراجع لكل إجراء نُفّذ
@@ -138,6 +150,11 @@ class RuleEngine:
 
         entries: List[UndoEntry] = []
         undo_log = UndoLog(undo_log_path) if undo_log_path else UndoLog(None)
+        # SafeMover مشترك لكل العمليات (لو مُفعّل)
+        safe_mover = None
+        if use_safe_mover:
+            from .safe_mover import SafeMover
+            safe_mover = SafeMover(verify_checksum=True, move_sidecar=True)
 
         # تتبّع المسار الحالي لكل ملف بعد النقل/النسخ (لو نُقل ملف ثم وُسم بعد ذلك)
         # الخريطة: original_path → current_path
@@ -169,7 +186,10 @@ class RuleEngine:
                 )
 
             try:
-                entry = self._execute_single(effective_planned, undo_log)
+                entry = self._execute_single(
+                    effective_planned, undo_log,
+                    action_log=action_log, safe_mover=safe_mover,
+                )
                 # تحديث خريطة المسار بعد النقل/النسخ الناجح
                 if entry.success and entry.file_path_after:
                     if entry.action_type in (ActionType.MOVE.value,):
@@ -187,10 +207,17 @@ class RuleEngine:
                 )
                 entries.append(entry)
                 undo_log.append(entry)
+                # تسجيل الفشل في action_log أيضًا
+                if action_log is not None:
+                    action_log.log_from_undo_entry(
+                        entry, source="rule_engine",
+                    )
 
         # حفظ السجل على القرص
         if undo_log_path:
             undo_log.save()
+        if action_log is not None and action_log.path is not None:
+            action_log.save()
 
         return entries
 
@@ -257,32 +284,57 @@ class RuleEngine:
         self,
         planned: PlannedAction,
         undo_log: "UndoLog",
+        *,
+        action_log: Optional["ActionLog"] = None,
+        safe_mover: Optional["SafeMover"] = None,
     ) -> UndoEntry:
-        """ينفّذ إجراءًا واحدًا ويسجّله في undo_log"""
+        """ينفّذ إجراءًا واحدًا ويسجّله في undo_log
+
+        Args:
+            planned: الإجراء المخطّط
+            undo_log: سجل التراجع
+            action_log: ActionLog اختياري (PR-07) لتسجيل الإجراء للعرض المرئي
+            safe_mover: SafeMover اختياري (PR-07) لعمليات move/copy الآمنة
+        """
         action_type = planned.action.type
         timestamp = datetime.now().isoformat()
 
         if action_type == ActionType.MOVE.value:
-            return self._exec_move(planned, undo_log, timestamp)
-        if action_type == ActionType.COPY.value:
-            return self._exec_copy(planned, undo_log, timestamp)
-        if action_type == ActionType.TAG.value:
-            return self._exec_tag(planned, undo_log, timestamp)
-        if action_type == ActionType.UNTAG.value:
-            return self._exec_untag(planned, undo_log, timestamp)
-        if action_type == ActionType.SET_CATEGORY.value:
-            return self._exec_set_category(planned, undo_log, timestamp)
-        if action_type == ActionType.DELETE_FLAG.value:
-            return self._exec_delete_flag(planned, undo_log, timestamp)
+            entry = self._exec_move(
+                planned, undo_log, timestamp, safe_mover=safe_mover
+            )
+        elif action_type == ActionType.COPY.value:
+            entry = self._exec_copy(
+                planned, undo_log, timestamp, safe_mover=safe_mover
+            )
+        elif action_type == ActionType.TAG.value:
+            entry = self._exec_tag(planned, undo_log, timestamp)
+        elif action_type == ActionType.UNTAG.value:
+            entry = self._exec_untag(planned, undo_log, timestamp)
+        elif action_type == ActionType.SET_CATEGORY.value:
+            entry = self._exec_set_category(planned, undo_log, timestamp)
+        elif action_type == ActionType.DELETE_FLAG.value:
+            entry = self._exec_delete_flag(planned, undo_log, timestamp)
+        else:
+            raise ValueError(f"نوع إجراء غير معروف: {action_type}")
 
-        raise ValueError(f"نوع إجراء غير معروف: {action_type}")
+        # تسجيل في ActionLog (PR-07)
+        if action_log is not None:
+            action_log.log_from_undo_entry(entry, source="rule_engine")
+
+        return entry
 
     # ─── منفّذو الإجراءات ────────────────────────────────────────────────
 
     def _exec_move(
-        self, planned: PlannedAction, undo_log: "UndoLog", timestamp: str
+        self, planned: PlannedAction, undo_log: "UndoLog", timestamp: str,
+        *, safe_mover: Optional["SafeMover"] = None,
     ) -> UndoEntry:
-        """ينفّذ نقل ملف على القرص (مع نقل ملف sidecar إن وُجد)"""
+        """ينفّذ نقل ملف على القرص (مع نقل ملف sidecar إن وُجد)
+
+        لو safe_mover مُمرّر، يُستخدم SafeMover (PR-07) مع تحقّق SHA-256 ومعالجة
+        ذرّية. لو None، يُستخدم السلوك القديم (shutil.move مباشرة).
+        """
         if not planned.target_path:
             raise ValueError("target_path مفقود لعملية move")
         src = Path(planned.file_path)
@@ -291,6 +343,35 @@ class RuleEngine:
         if not src.exists():
             raise FileNotFoundError(f"الملف المصدر غير موجود: {src}")
 
+        # ─── المسار الآمن (PR-07): SafeMover ───
+        if safe_mover is not None:
+            result = safe_mover.move(src, dst)
+            if not result.success:
+                # فشل النقل الآمن — نسجّل الفشل ولا نُكمل
+                entry = UndoEntry(
+                    action_type=ActionType.MOVE.value,
+                    file_path=str(src),
+                    file_path_after=result.final_path or str(dst),
+                    rule_name=planned.rule_name,
+                    timestamp=timestamp,
+                    success=False,
+                    error_message=result.error or "safe_move failed",
+                )
+                undo_log.append(entry)
+                return entry
+            # نجح النقل — final_path قد يختلف لو حدث تضارب
+            entry = UndoEntry(
+                action_type=ActionType.MOVE.value,
+                file_path=str(src),
+                file_path_after=result.final_path,
+                rule_name=planned.rule_name,
+                timestamp=timestamp,
+                success=True,
+            )
+            undo_log.append(entry)
+            return entry
+
+        # ─── المسار القديم (legacy): shutil.move ───
         # إنشاء المجلد الوجهة إن لم يكن موجودًا
         dst.parent.mkdir(parents=True, exist_ok=True)
 
@@ -327,9 +408,14 @@ class RuleEngine:
         return entry
 
     def _exec_copy(
-        self, planned: PlannedAction, undo_log: "UndoLog", timestamp: str
+        self, planned: PlannedAction, undo_log: "UndoLog", timestamp: str,
+        *, safe_mover: Optional["SafeMover"] = None,
     ) -> UndoEntry:
-        """ينفّذ نسخ ملف على القرص (مع نسخ sidecar إن وُجد)"""
+        """ينفّذ نسخ ملف على القرص (مع نسخ sidecar إن وُجد)
+
+        لو safe_mover مُمرّر، يُستخدم SafeMover (PR-07). لو None، يُستخدم
+        السلوك القديم (shutil.copy2).
+        """
         if not planned.target_path:
             raise ValueError("target_path مفقود لعملية copy")
         src = Path(planned.file_path)
@@ -338,6 +424,33 @@ class RuleEngine:
         if not src.exists():
             raise FileNotFoundError(f"الملف المصدر غير موجود: {src}")
 
+        # ─── المسار الآمن (PR-07): SafeMover ───
+        if safe_mover is not None:
+            result = safe_mover.copy(src, dst)
+            if not result.success:
+                entry = UndoEntry(
+                    action_type=ActionType.COPY.value,
+                    file_path=str(src),
+                    file_path_after=result.final_path or str(dst),
+                    rule_name=planned.rule_name,
+                    timestamp=timestamp,
+                    success=False,
+                    error_message=result.error or "safe_copy failed",
+                )
+                undo_log.append(entry)
+                return entry
+            entry = UndoEntry(
+                action_type=ActionType.COPY.value,
+                file_path=str(src),
+                file_path_after=result.final_path,
+                rule_name=planned.rule_name,
+                timestamp=timestamp,
+                success=True,
+            )
+            undo_log.append(entry)
+            return entry
+
+        # ─── المسار القديم (legacy): shutil.copy2 ───
         dst.parent.mkdir(parents=True, exist_ok=True)
 
         if dst.exists() and src.resolve() != dst.resolve():
