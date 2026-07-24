@@ -1,0 +1,202 @@
+# IntelliFile — Default Organization Ruleset
+# =============================================================================
+# هذه القواعد الافتراضية لتنظيم الملفات. عدّلها أو أضف قواعدك الخاصة.
+# كل قاعدة لها:
+#   name: اسم فريد للقاعدة
+#   description: وصف اختياري
+#   priority: الأولوية (الأعلى يُفحص أولًا — first-match-wins)
+#   enabled: true/false (هل القاعدة مفعّلة؟)
+#   conditions: قائمة شروط (AND — كلها يجب أن تتحقق)
+#   actions: قائمة إجراءات (تُنفَّذ بالترتيب)
+#
+# الشروط المدعومة:
+#   - field: extension | category | file_name | file_path | parent_dir |
+#            file_size | mime_type | content_type | is_duplicate |
+#            has_tag | has_exif | extra (مع key)
+#   - op: eq | ne | in | not_in | contains | gt | gte | lt | lte | exists
+#   - value: قيمة للمقارنة (string/number/list)
+#   - key: مفتاح فرعي للحقل "extra" (مثل width, height, duration_seconds)
+#
+# الإجراءات المدعومة:
+#   - type: move | copy | tag | untag | set_category | delete_flag
+#   - target: مسار الوجهة (نسبي من base_dir أو مطلق) — لـ move/copy
+#   - value: قيمة الوسم/التصنيف — لـ tag/untag/set_category
+# =============================================================================
+
+name: Default Organization Rules
+description: قواعد افتراضية لتنظيم الملفات الشخصية
+
+rules:
+  # ─── صور كبيرة (أكبر من 5MB) ─────────────────────────────────────────────
+  - name: Large photos
+    description: صور أكبر من 5MB تُنقل إلى Pictures/Large
+    priority: 100
+    enabled: true
+    conditions:
+      - field: extension
+        op: in
+        value: [jpg, jpeg, png, heic]
+      - field: file_size
+        op: gt
+        value: 5242880  # 5MB
+    actions:
+      - type: move
+        target: Pictures/Large
+      - type: tag
+        value: large-photo
+
+  # ─── صور بـ EXIF (من كاميرا) ────────────────────────────────────────────
+  - name: Camera photos
+    description: صور بـ EXIF تُوسم بـ from-camera
+    priority: 90
+    enabled: true
+    conditions:
+      - field: extension
+        op: in
+        value: [jpg, jpeg, heic]
+      - field: has_exif
+        op: exists
+    actions:
+      - type: tag
+        value: from-camera
+
+  # ─── صور صغيرة (أقل من 100KB) ───────────────────────────────────────────
+  - name: Small images
+    description: صور صغيرة تُوسم بـ thumbnail
+    priority: 80
+    enabled: true
+    conditions:
+      - field: extension
+        op: in
+        value: [jpg, jpeg, png, gif, webp]
+      - field: file_size
+        op: lt
+        value: 102400  # 100KB
+    actions:
+      - type: tag
+        value: thumbnail
+
+  # ─── فيديوهات طويلة (مدة > 10 دقائق) ────────────────────────────────────
+  - name: Long videos
+    description: فيديوهات طويلة تُنقل إلى Videos/Long
+    priority: 70
+    enabled: true
+    conditions:
+      - field: extension
+        op: in
+        value: [mp4, mkv, avi, mov]
+      - field: extra
+        op: gt
+        key: duration_seconds
+        value: 600  # 10 دقائق
+    actions:
+      - type: move
+        target: Videos/Long
+      - type: tag
+        value: long-video
+
+  # ─── مستندات PDF ────────────────────────────────────────────────────────
+  - name: PDF documents
+    description: ملفات PDF تُنقل إلى Documents/PDF
+    priority: 60
+    enabled: true
+    conditions:
+      - field: extension
+        op: eq
+        value: pdf
+    actions:
+      - type: move
+        target: Documents/PDF
+      - type: set_category
+        value: مستندات
+
+  # ─── جداول بيانات Excel ─────────────────────────────────────────────────
+  - name: Spreadsheets
+    description: ملفات Excel تُنقل إلى Documents/Spreadsheets
+    priority: 55
+    enabled: true
+    conditions:
+      - field: extension
+        op: in
+        value: [xlsx, xls]
+    actions:
+      - type: move
+        target: Documents/Spreadsheets
+
+  # ─── عروض PowerPoint ────────────────────────────────────────────────────
+  - name: Presentations
+    description: عروض PPTX تُنقل إلى Documents/Presentations
+    priority: 50
+    enabled: true
+    conditions:
+      - field: extension
+        op: in
+        value: [pptx, ppt]
+    actions:
+      - type: move
+        target: Documents/Presentations
+
+  # ─── مستندات Word ────────────────────────────────────────────────────────
+  - name: Word documents
+    description: ملفات Word تُنقل إلى Documents/Word
+    priority: 45
+    enabled: true
+    conditions:
+      - field: extension
+        op: in
+        value: [docx, doc]
+    actions:
+      - type: move
+        target: Documents/Word
+
+  # ─── ملفات صوتية ────────────────────────────────────────────────────────
+  - name: Audio files
+    description: ملفات صوتية تُنقل إلى Audio
+    priority: 40
+    enabled: true
+    conditions:
+      - field: extension
+        op: in
+        value: [mp3, wav, flac, aac, ogg, m4a]
+    actions:
+      - type: move
+        target: Audio
+
+  # ─── ملفات مكررة (تُوسم فقط، لا تُحذف) ──────────────────────────────────
+  - name: Duplicate files
+    description: الملفات المكررة تُوسم بـ duplicate (لا حذف تلقائي)
+    priority: 30
+    enabled: true
+    conditions:
+      - field: is_duplicate
+        op: eq
+        value: true
+    actions:
+      - type: tag
+        value: duplicate
+
+  # ─── ملفات قديمة كبيرة (للمراجعة) ────────────────────────────────────────
+  - name: Large old files
+    description: ملفات أكبر من 50MB تُوسم بـ review-large
+    priority: 20
+    enabled: true
+    conditions:
+      - field: file_size
+        op: gt
+        value: 52428800  # 50MB
+    actions:
+      - type: tag
+        value: review-large
+
+  # ─── ملفات قابلة للحذف (مراجعة يدوية) ───────────────────────────────────
+  # هذه القاعدة معطّلة افتراضيًا — فعّلها يدويًا بعد المراجعة
+  - name: Flag temp files for deletion
+    description: ملفات .tmp و.bak تُوسم بـ to_delete (مراجعة يدوية)
+    priority: 10
+    enabled: false
+    conditions:
+      - field: extension
+        op: in
+        value: [tmp, bak, old, swp]
+    actions:
+      - type: delete_flag

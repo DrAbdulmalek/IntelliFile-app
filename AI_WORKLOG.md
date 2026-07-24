@@ -18,6 +18,7 @@ Track all AI agent activity across repositories to prevent conflicts, ensure acc
 | Phase 5: Roadmap (IFM + OMS) | ✅ COMPLETED | Executive Reviewer | 2026-07-24 | 2026-07-24 |
 | Phase 6: PR-02 (FileInventory + tests) | ✅ COMPLETED | Executive Reviewer | 2026-07-24 | 2026-07-24 |
 | Phase 7: PR-03 (Enhanced Metadata) | ✅ COMPLETED | Executive Reviewer | 2026-07-24 | 2026-07-24 |
+| Phase 8: PR-05 (Rule Engine + Dry-Run + Undo) | ✅ COMPLETED | Executive Reviewer | 2026-07-24 | 2026-07-24 |
 
 ---
 
@@ -43,7 +44,7 @@ Track all AI agent activity across repositories to prevent conflicts, ensure acc
 1. ✅ Add SECURITY_NOTES.md to intelli-file-manager
 2. ✅ Remove DICOM/SyncManager from intelli-file-manager (PR-01, 2026-07-24)
 3. ⏳ Branch cleanup (long-lived feature branches)
-4. 🟡 Disciplined development roadmap (Phase A in progress — PR-02 ✅, PR-03 ✅, PR-04 next)
+4. 🟡 Disciplined development roadmap (Phase A in progress — PR-02 ✅, PR-03 ✅, PR-05 ✅, PR-06 next)
 
 ### Z.ai - VERIFIER ONLY
 
@@ -126,6 +127,25 @@ Track all AI agent activity across repositories to prevent conflicts, ensure acc
 | 14:15 | Ran new tests — 48/48 pass | intelli-file-manager | ✅ |
 | 14:15 | Ran full suite — 310/310 pass (48 new, 0 regressions) | intelli-file-manager | ✅ |
 | 14:16 | Committed + pushed branch + opening PR | intelli-file-manager | ✅ |
+
+### 2026-07-24 - Executive Reviewer (PR-05 — IFM Phase A: rule engine + dry-run + undo)
+
+| Time (UTC) | Action | Repository | Status |
+|------------|--------|------------|--------|
+| 15:00 | Merged PR #26 via API (squash, sha=1db03af) then pulled main | intelli-file-manager | ✅ |
+| 15:02 | Verified PyYAML + Jinja2 available (no new system deps needed) | intelli-file-manager | ✅ |
+| 15:03 | Created branch feat/ifm-rule-engine-dry-run-undo | intelli-file-manager | ✅ |
+| 15:05 | Wrote src/core/rule_schemas.py (Ruleset/Rule/Condition/Action + dry-run/undo dataclasses) | intelli-file-manager | ✅ |
+| 15:08 | Wrote src/core/rule_engine.py (RuleEngine: dry_run + execute + 6 action executors) | intelli-file-manager | ✅ |
+| 15:10 | Wrote src/core/undo_log.py (UndoLog: append/save/load + rollback_last/all/n + 6 rollback impls) | intelli-file-manager | ✅ |
+| 15:12 | Wrote src/core/dry_run_reporter.py (HTML report with inline CSS, no external deps) | intelli-file-manager | ✅ |
+| 15:14 | Fixed tag-after-move bug: path_remap tracking + sidecar relocation on move/copy | intelli-file-manager | ✅ |
+| 15:16 | Wrote tests/integration/test_rule_engine.py (58 tests, 9 classes) | intelli-file-manager | ✅ |
+| 15:18 | Fixed has_exif condition + set_category rollback edge cases — 58/58 pass | intelli-file-manager | ✅ |
+| 15:19 | Created rules/default_rules.yaml (12 sample rules for users to adapt) | intelli-file-manager | ✅ |
+| 15:20 | Ran full suite — 368/368 pass (58 new, 0 regressions) | intelli-file-manager | ✅ |
+| 15:21 | Added PyYAML>=6.0 to requirements.txt | intelli-file-manager | ✅ |
+| 15:22 | Committed + pushed branch + opening PR | intelli-file-manager | ✅ |
 
 ### 2026-07-20 to 2026-07-21 - Z.ai (Previous Work)
 
