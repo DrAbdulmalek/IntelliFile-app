@@ -127,12 +127,19 @@ class InventoryPanel(QWidget):
         if not items:
             return
         row = items[0].row()
-        # نأخذ مسار الملف من عمود "المجلد" + عمود "اسم الملف"
+        # نأخذ المسار الكامل المخزّن في Qt.UserRole لعمود "اسم الملف"
         name_item = self.table.item(row, 0)
-        dir_item = self.table.item(row, 1)
-        if name_item and dir_item:
-            file_path = f"{dir_item.text()}/{name_item.text()}"
-            self.selection_changed.emit(file_path)
+        if name_item is None:
+            return
+        file_path = name_item.data(Qt.UserRole)
+        if file_path:
+            self.selection_changed.emit(str(file_path))
+        else:
+            # fallback: إعادة بناء من اسم الملف + المجلد
+            dir_item = self.table.item(row, 1)
+            if name_item and dir_item:
+                file_path = f"{dir_item.text()}/{name_item.text()}"
+                self.selection_changed.emit(file_path)
 
     # ─── Public API ────────────────────────────────────────────────────────
 
@@ -143,7 +150,10 @@ class InventoryPanel(QWidget):
             row = self.table.rowCount()
             self.table.insertRow(row)
             md = record.metadata
-            self.table.setItem(row, 0, QTableWidgetItem(md.file_name))
+            name_item = QTableWidgetItem(md.file_name)
+            # نخزّن المسار الكامل في Qt.UserRole لاستخدامه في المعاينة (PR-09)
+            name_item.setData(Qt.UserRole, md.file_path)
+            self.table.setItem(row, 0, name_item)
             self.table.setItem(row, 1, QTableWidgetItem(md.parent_dir))
             self.table.setItem(row, 2, QTableWidgetItem(_format_size(md.file_size)))
             self.table.setItem(row, 3, QTableWidgetItem(md.extension or ""))

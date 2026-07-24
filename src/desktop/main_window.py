@@ -2,15 +2,18 @@
 
 التصميم:
   - Sidebar (يمين) — قائمة تنقل بين اللوحات
-  - Central QStackedWidget — يحتوي اللوحات الخمس
-  - IFMStatusBar (أسفل) — مؤشر المراقب + الإحصائيات + رسالة الحالة
-  - QMenuBar — ملف (فتح مجلد، خروج) + عرض (تبديل السمة) + مساعدة
+  - Central QStackedWidget — يحتوي اللوحات السبع
+  - IFMStatusBar (أسفل) — مؤشر المراقب + الإحصائيات + شريط التقدّم + الأخطاء + رسالة
+  - QMenuBar — ملف (فتح مجلد، خروج) + عرض (تبديل السمة) + إجراءات (إلغاء) + مساعدة
 
 التكامل مع IFMController:
   - كل لوحة تتصل بـ controller عبر signals/slots
   - تحديثات الحالة تُبَث للوحة status bar
+  - إشارات التقدّم والإلغاء تُربط بـ ProgressManager في الـ status bar (PR-09)
+  - إشارات الأخطاء تُربط بـ ErrorReporter في الـ status bar (PR-09)
 
 PR-08 من development-roadmap-v1.0 (IFM Phase C)
+PR-09 من development-roadmap-v1.0 (progress + previews + settings)
 """
 from __future__ import annotations
 
@@ -29,15 +32,18 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from .controllers.ifm_controller import IFMController, IFMStateSnapshot
+from .controllers.ifm_controller import IFMController, IFMStateSnapshot, ProgressToken
+from .panels.action_log_panel import ActionLogPanel
+from .panels.inventory_panel import InventoryPanel
+from .panels.preview_panel import FilePreviewPanel
+from .panels.rule_engine_panel import RuleEnginePanel
+from .panels.settings_panel import SettingsPanel
+from .panels.undo_log_panel import UndoLogPanel
+from .panels.watcher_panel import WatcherPanel
+from .settings import IFMSettings
 from .theme import apply_theme, apply_rtl, init_app_theme, toggle_theme
 from .widgets.sidebar import Sidebar
 from .widgets.status_bar import IFMStatusBar
-from .panels.action_log_panel import ActionLogPanel
-from .panels.inventory_panel import InventoryPanel
-from .panels.rule_engine_panel import RuleEnginePanel
-from .panels.undo_log_panel import UndoLogPanel
-from .panels.watcher_panel import WatcherPanel
 
 
 class IFMMainWindow(QMainWindow):
@@ -51,7 +57,7 @@ class IFMMainWindow(QMainWindow):
     ):
         super().__init__(parent)
         self.setWindowTitle("IntelliFile — منظّم الملفات الذكي")
-        self.resize(1200, 800)
+        self.resize(1280, 820)
 
         # ─── Controller ────────────────────────────────────────────────
         self.controller = controller or IFMController(
@@ -70,6 +76,9 @@ class IFMMainWindow(QMainWindow):
         if self.controller.ruleset_path:
             self.inventory_panel.set_path(str(self.controller.base_dir))
 
+        # ─── تطبيق الإعدادات المحفوظة ──────────────────────────────────
+        self._apply_initial_settings(self.controller.settings)
+
     # ─── Build UI ───────────────────────────────────────────────────────────
 
     def _build_ui(self) -> None:
@@ -85,16 +94,24 @@ class IFMMainWindow(QMainWindow):
         # Central stack
         self.stack = QStackedWidget()
         self.inventory_panel = InventoryPanel()
+        self.preview_panel = FilePreviewPanel(
+            max_text_bytes=self.controller.settings.max_text_preview_bytes
+        )
         self.rule_engine_panel = RuleEnginePanel()
         self.action_log_panel = ActionLogPanel()
         self.undo_log_panel = UndoLogPanel()
         self.watcher_panel = WatcherPanel()
+        self.settings_panel = SettingsPanel(settings=self.controller.settings)
 
+        # ترتيب اللوحات يطابق ترتيب NAV_ITEMS في Sidebar
+        # inventory=0, preview=1, rules=2, action_log=3, undo_log=4, watcher=5, settings=6
         self.stack.addWidget(self.inventory_panel)
+        self.stack.addWidget(self.preview_panel)
         self.stack.addWidget(self.rule_engine_panel)
         self.stack.addWidget(self.action_log_panel)
         self.stack.addWidget(self.undo_log_panel)
         self.stack.addWidget(self.watcher_panel)
+        self.stack.addWidget(self.settings_panel)
 
         layout.addWidget(self.stack, stretch=1)
 
@@ -130,6 +147,14 @@ class IFMMainWindow(QMainWindow):
         self.theme_action.triggered.connect(self._on_toggle_theme)
         view_menu.addAction(self.theme_action)
 
+        # ─── قائمة إجراءات (PR-09) ─────────────────────────────────────
+        ops_menu = menubar.addMenu("إجراءات")
+
+        self.cancel_action = QAction("إلغاء العملية الحالية", self)
+        self.cancel_action.setShortcut(QKeySequence("Esc"))
+        self.cancel_action.triggered.connect(self._on_cancel_operation)
+        ops_menu.addAction(self.cancel_action)
+
         # ─── قائمة مساعدة ──────────────────────────────────────────────
         help_menu = menubar.addMenu("مساعدة")
 
@@ -145,6 +170,7 @@ class IFMMainWindow(QMainWindow):
 
         # Inventory panel
         self.inventory_panel.scan_requested.connect(self._on_scan_requested)
+        self.inventory_panel.selection_changed.connect(self._on_inventory_selection)
 
         # Rule engine panel
         self.rule_engine_panel.load_ruleset_requested.connect(self._on_load_ruleset)
@@ -164,10 +190,16 @@ class IFMMainWindow(QMainWindow):
         self.watcher_panel.start_requested.connect(self._on_watcher_start)
         self.watcher_panel.stop_requested.connect(self._on_watcher_stop)
 
+        # Settings panel (PR-09)
+        self.settings_panel.settings_changed.connect(self._on_settings_changed)
+        self.settings_panel.theme_change_requested.connect(self._on_theme_change_requested)
+        self.settings_panel.rtl_change_requested.connect(self._on_rtl_change_requested)
+
         # Controller signals → UI updates
         self.controller.scan_started.connect(self._on_scan_started)
         self.controller.scan_finished.connect(self._on_scan_finished)
         self.controller.scan_failed.connect(self._on_scan_failed)
+        self.controller.scan_cancelled.connect(self._on_scan_cancelled)
 
         self.controller.dry_run_started.connect(self._on_dry_run_started)
         self.controller.dry_run_ready.connect(self._on_dry_run_ready)
@@ -176,6 +208,7 @@ class IFMMainWindow(QMainWindow):
         self.controller.execute_started.connect(self._on_execute_started)
         self.controller.execute_finished.connect(self._on_execute_finished)
         self.controller.execute_failed.connect(self._on_execute_failed)
+        self.controller.execute_cancelled.connect(self._on_execute_cancelled)
 
         self.controller.undo_finished.connect(self._on_undo_finished)
         self.controller.undo_log_changed.connect(self._on_undo_log_changed)
@@ -189,15 +222,25 @@ class IFMMainWindow(QMainWindow):
         self.controller.state_changed.connect(self._on_state_changed)
         self.controller.error.connect(self._on_error)
 
+        # PR-09: progress + cancellation
+        self.controller.progress.connect(self._on_progress)
+        self.controller.operation_cancelled.connect(self._on_operation_cancelled)
+        self.controller.file_previewed.connect(self._on_file_previewed)
+
+        # PR-09: ProgressManager → controller.cancel_operation
+        self.status_bar.progress_manager.cancelled.connect(self._on_progress_cancelled)
+
     # ─── Slots: Sidebar / Menu ──────────────────────────────────────────────
 
     def _on_nav(self, nav_id: str) -> None:
         idx_map = {
             "inventory": 0,
-            "rules": 1,
-            "action_log": 2,
-            "undo_log": 3,
-            "watcher": 4,
+            "preview": 1,
+            "rules": 2,
+            "action_log": 3,
+            "undo_log": 4,
+            "watcher": 5,
+            "settings": 6,
         }
         idx = idx_map.get(nav_id, 0)
         self.stack.setCurrentIndex(idx)
@@ -215,24 +258,30 @@ class IFMMainWindow(QMainWindow):
         if app:
             new_mode = toggle_theme(app)
             self.status_bar.set_message(f"السمة: {new_mode}")
+            # تحديث الإعداد
+            self.controller.settings.dark_mode = (new_mode == "dark")
+            self.settings_panel.set_settings(self.controller.settings)
 
     def _on_about(self) -> None:
         QMessageBox.about(
             self, "حول IntelliFile",
             "<h3>IntelliFile — منظّم الملفات الذكي</h3>"
-            "<p>IFM Desktop UX — PR-08 (Phase C)</p>"
+            "<p>IFM Desktop UX — PR-09 (Phase C)</p>"
             "<p>واجهة PySide6 مع تكامل كامل لطبقة IFM الأساسية:</p>"
             "<ul>"
             "<li>FileInventory — جرد الملفات</li>"
+            "<li>FilePreview — معاينة النص والصور</li>"
             "<li>RuleEngine — قواعد + محاكاة + تنفيذ</li>"
             "<li>ActionLog — سجل مرئي + JSON/HTML</li>"
             "<li>UndoLog — تراجع كامل</li>"
             "<li>FileWatcher — مراقبة مباشرة</li>"
+            "<li>ProgressManager — شريط تقدّم قابل للإلغاء</li>"
+            "<li>Settings — إعدادات قابلة للتخصيص</li>"
             "</ul>"
             "<p><i>لا AI، لا medical — فقط UX foundation.</i></p>"
         )
 
-    # ─── Slots: Inventory ───────────────────────────────────────────────────
+    # ─── Slots: Inventory + Preview ─────────────────────────────────────────
 
     def _on_scan_requested(self, path: str) -> None:
         self.controller.scan_directory(path)
@@ -256,10 +305,38 @@ class IFMMainWindow(QMainWindow):
         self.undo_log_panel.set_entries(self.controller.undo_log.list_entries())
         self.action_log_panel.set_entries(self.controller.action_log.list_entries())
 
+        # PR-09: auto-organize لو مفعّل في الإعدادات
+        if self.controller.settings.auto_organize and self.controller.settings.default_dry_run:
+            QTimer.singleShot(100, self._maybe_auto_organize)
+
     def _on_scan_failed(self, message: str) -> None:
         self.inventory_panel.set_scanning(False)
         self.status_bar.set_message(f"فشل الفحص: {message}")
         self.status_bar.set_watcher_state("error")
+        self.status_bar.error_reporter.add_error("فشل الفحص", message, context="scan")
+
+    def _on_scan_cancelled(self, path: str) -> None:
+        self.inventory_panel.set_scanning(False)
+        self.status_bar.set_message(f"أُلغي الفحص: {path}")
+        self.status_bar.set_watcher_state(
+            "running" if self.controller.is_watcher_running() else "idle"
+        )
+
+    def _on_inventory_selection(self, file_path: str) -> None:
+        """عند اختيار ملف في الجرد — تحديث المعاينة"""
+        self.preview_panel.preview_file(file_path)
+
+    def _on_file_previewed(self, file_path: str) -> None:
+        """عند طلب معاينة ملف — التنقّل للوحة المعاينة"""
+        self.preview_panel.preview_file(file_path)
+        self._on_nav("preview")
+
+    def _maybe_auto_organize(self) -> None:
+        """يشغّل dry_run تلقائيًا لو auto_organize مفعّل"""
+        if not self.controller.records:
+            return
+        self.status_bar.set_message("تشغيل تلقائي: محاكاة...")
+        self.controller.dry_run()
 
     # ─── Slots: Ruleset / Dry-Run / Execute ─────────────────────────────────
 
@@ -283,6 +360,7 @@ class IFMMainWindow(QMainWindow):
     def _on_dry_run_failed(self, message: str) -> None:
         self.rule_engine_panel.set_dry_run_failed(message)
         self.status_bar.set_message(f"فشل المحاكاة: {message}")
+        self.status_bar.error_reporter.add_error("فشل المحاكاة", message, context="dry_run")
 
     def _on_execute(self, confirm_destructive: bool) -> None:
         self.controller.execute(confirm_destructive=confirm_destructive)
@@ -298,10 +376,20 @@ class IFMMainWindow(QMainWindow):
         self.status_bar.set_message(
             f"اكتمل التنفيذ: {len(entries) - len(failures)} نجح، {len(failures)} فشل"
         )
+        # الإبلاغ عن الأخطاء
+        for f in failures:
+            err_msg = f.get("error", "خطأ غير معروف") if isinstance(f, dict) else str(f)
+            self.status_bar.error_reporter.add_error(
+                "فشل تنفيذ إجراء", err_msg, context="execute"
+            )
 
     def _on_execute_failed(self, message: str) -> None:
         self.rule_engine_panel.set_execute_failed(message)
         self.status_bar.set_message(f"فشل التنفيذ: {message}")
+        self.status_bar.error_reporter.add_error("فشل التنفيذ", message, context="execute")
+
+    def _on_execute_cancelled(self, executed_so_far: int) -> None:
+        self.status_bar.set_message(f"أُلغي التنفيذ بعد {executed_so_far} إجراء")
 
     # ─── Slots: Action Log ──────────────────────────────────────────────────
 
@@ -311,6 +399,9 @@ class IFMMainWindow(QMainWindow):
             self.status_bar.set_message(f"تم التصدير JSON: {result}")
         except Exception as e:
             QMessageBox.warning(self, "خطأ تصدير", str(e))
+            self.status_bar.error_reporter.add_error(
+                "فشل تصدير JSON", str(e), context="export"
+            )
 
     def _on_export_html(self, path: str) -> None:
         try:
@@ -318,6 +409,9 @@ class IFMMainWindow(QMainWindow):
             self.status_bar.set_message(f"تم التصدير HTML: {result}")
         except Exception as e:
             QMessageBox.warning(self, "خطأ تصدير", str(e))
+            self.status_bar.error_reporter.add_error(
+                "فشل تصدير HTML", str(e), context="export"
+            )
 
     def _on_clear_action_log(self) -> None:
         reply = QMessageBox.question(
@@ -351,6 +445,9 @@ class IFMMainWindow(QMainWindow):
             self.status_bar.set_message("تم التراجع عن الإجراء")
         else:
             self.status_bar.set_message(f"فشل التراجع: {error}")
+            self.status_bar.error_reporter.add_error(
+                "فشل التراجع", error, context="undo"
+            )
 
     def _on_undo_log_changed(self, count: int) -> None:
         self.undo_log_panel.set_entries(self.controller.undo_log.list_entries())
@@ -372,6 +469,69 @@ class IFMMainWindow(QMainWindow):
         self.watcher_panel.set_running(False)
         self.status_bar.set_watcher_state("idle")
         self.status_bar.set_message("المراقب متوقف")
+
+    # ─── Slots: Settings (PR-09) ────────────────────────────────────────────
+
+    def _on_settings_changed(self, settings: IFMSettings) -> None:
+        """عند حفظ إعدادات جديدة من SettingsPanel"""
+        self.controller.apply_settings(settings)
+        # تحديث PreviewPanel لو تغيّر حد المعاينة
+        self.preview_panel.set_max_text_bytes(settings.max_text_preview_bytes)
+        self.status_bar.set_message("تم تطبيق الإعدادات")
+
+    def _on_theme_change_requested(self, mode: str) -> None:
+        """عند تغيير السمة من SettingsPanel"""
+        app = QApplication.instance()
+        if app:
+            from .theme import apply_theme
+            apply_theme(app, mode)
+            app.setProperty("ifm_theme", mode)
+
+    def _on_rtl_change_requested(self, rtl: bool) -> None:
+        """عند تغيير اتجاه RTL من SettingsPanel"""
+        app = QApplication.instance()
+        if app:
+            from PySide6.QtCore import Qt
+            app.setLayoutDirection(Qt.RightToLeft if rtl else Qt.LeftToRight)
+
+    def _apply_initial_settings(self, settings: IFMSettings) -> None:
+        """يطبّق الإعدادات المحفوظة عند بدء التشغيل"""
+        app = QApplication.instance()
+        if app:
+            from .theme import apply_theme
+            apply_theme(app, "dark" if settings.dark_mode else "light")
+            app.setProperty("ifm_theme", "dark" if settings.dark_mode else "light")
+            app.setLayoutDirection(Qt.RightToLeft if settings.rtl else Qt.LeftToRight)
+        # تحديث الـ SettingsPanel لإ reflect القيم الفعلية المطبّقة
+        self.settings_panel.set_settings(settings)
+
+    # ─── Slots: Progress + Cancellation (PR-09) ─────────────────────────────
+
+    def _on_progress(self, op_id: str, current: int, total: int, message: str) -> None:
+        """تحديث شريط التقدّم في الـ status bar"""
+        pm = self.status_bar.progress_manager
+        if not pm.is_active(op_id):
+            pm.start(op_id, total=total, message=message)
+        else:
+            pm.update(op_id, current=current, total=total, message=message)
+
+    def _on_operation_cancelled(self, op_id: str) -> None:
+        """عند تأكيد إلغاء عملية من الـ controller"""
+        pm = self.status_bar.progress_manager
+        pm.finish(op_id, success=False, message=f"أُلغي: {op_id}")
+        self.status_bar.set_message(f"أُلغي: {op_id}")
+
+    def _on_progress_cancelled(self, op_id: str) -> None:
+        """عند نقر زر الإلغاء في ProgressManager"""
+        ok = self.controller.cancel_operation(op_id)
+        if not ok:
+            self.status_bar.set_message(f"لا عملية نشطة: {op_id}")
+
+    def _on_cancel_operation(self) -> None:
+        """عند اختيار 'إلغاء العملية الحالية' من القائمة"""
+        pm = self.status_bar.progress_manager
+        # يُلغي آخر عملية نشطة
+        pm._on_cancel_clicked()
 
     # ─── Slots: State / Error ───────────────────────────────────────────────
 
@@ -396,6 +556,7 @@ class IFMMainWindow(QMainWindow):
     def _on_error(self, title: str, message: str) -> None:
         QMessageBox.warning(self, title, message)
         self.status_bar.set_message(f"{title}: {message}")
+        self.status_bar.error_reporter.add_error(title, message, context="controller")
 
     # ─── Lifecycle ──────────────────────────────────────────────────────────
 

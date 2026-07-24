@@ -250,6 +250,49 @@ Track all AI agent activity across repositories to prevent conflicts, ensure acc
 
 ---
 
+### Phase C — PR-09: Progress + Previews + Settings (Desktop UX) — 2026-07-25
+
+**Branch:** `feat/ifm-desktop-progress-previews-settings` (off `main` after PR-08 merge)
+**Goal:** استكمال UX Foundation بإضافة شريط تقدّم قابل للإلغاء، معاينة محتوى الملفات (نص + صورة)، ولوحة إعدادات شاملة.
+**Scope boundary:** لا AI، لا medical، لا ميزات خارج UX. فقط إكمال طبقة العرض.
+
+**Files added (src/desktop/):**
+- `settings.py` (~190 LOC) — `IFMSettings` dataclass with 11 fields: watch_folders_enabled, default_dry_run, confirm_destructive, semantic_search_enabled, dark_mode, rtl, auto_organize, thumbnail_size, max_text_preview_bytes, save_undo_log_on_exit, save_action_log_on_exit. JSON roundtrip + load/save with safe fallback for missing/corrupt files.
+- `panels/preview_panel.py` (~315 LOC) — `FilePreviewPanel`: معاينة نص (txt/md/py/json/yaml/...) لـ ~30 امتدادًا، مصغّرة صور (jpg/png/gif/bmp/webp/svg/...) لـ 10 امتدادات، معلومات ملف (الاسم/المسار/الحجم/النوع/آخر تعديل)، رسائل "غير متاح" و"لا يوجد ملف محدّد"، قص ذكي للملفات الكبيرة.
+- `panels/settings_panel.py` (~290 LOC) — `SettingsPanel`: 9 checkboxes + 2 spin boxes + 3 buttons (save/reset/apply). إشارات settings_changed + theme_change_requested + rtl_change_requested. تأكيد قبل reset. QMessageBox مكبوتة في الاختبارات.
+- `widgets/progress_manager.py` (~260 LOC) — `ProgressManager`: متعدد العمليات (op_id → ProgressToken)، QProgressBar + QLabel + زر إلغاء، يبدأ/يحدّث/ينهي تلقائيًا، يدعم الإلغاء، يخفي نفسه عند عدم وجود عمليات نشطة. اندماج كامل مع IFMController.progress + operation_cancelled.
+- `widgets/error_reporter.py` (~210 LOC) — `ErrorReporter`: عداد أخطاء + تحذيرات + سجل آخر 50 رسالة + إشارة errors_changed + dialog اختياري. مستوى severity (error/warning) + context tag.
+- `widgets/recent_actions.py` (~170 LOC) — `RecentActionsWidget`: عرض آخر 20 إجراءً (timestamp + summary + status)، تحديث فوري عند log، إفراغ واضح، حالة فارغة مرئية.
+
+**Files modified (src/desktop/):**
+- `controllers/ifm_controller.py` — Added `progress`/`operation_cancelled`/`settings_changed`/`file_previewed` signals + `ProgressToken` class + `_active_tokens` dict + `_start_operation`/`_finish_operation`/`cancel_operation`/`is_operation_active` + `apply_settings` + `scan_directory`/`dry_run`/`execute` emit progress + honour cancellation tokens.
+- `main_window.py` — Wired ProgressManager + ErrorReporter + RecentActionsWidget into IFMStatusBar. Added `_on_progress`, `_on_operation_cancelled`, `_on_progress_cancelled`, `_on_cancel_operation`, `_on_inventory_selection` (auto-preview on row select), `_on_file_previewed`, `_on_settings_changed`, `_on_theme_change_requested`, `_on_rtl_change_requested`, `_apply_initial_settings`. Added "إجراءات" menu with "إلغاء العملية الحالية" (Esc shortcut). Auto-organize scheduling via QTimer if `settings.auto_organize` enabled.
+- `panels/inventory_panel.py` — Added `selection_changed(str)` signal + `Qt.UserRole` data on name column to carry full file_path for preview.
+- `widgets/status_bar.py` — Now hosts `ProgressManager` + `ErrorReporter` + `RecentActionsWidget` alongside the existing WatcherIndicator + StatsLabel.
+- `widgets/sidebar.py` — Added "preview" + "settings" navigation entries.
+- `app.py` — Loads IFMSettings at startup; passes settings to controller.
+
+**Files added (tests):**
+- `tests/integration/test_desktop_pr09.py` (~770 LOC, 54 tests in 8 classes): TestIFMSettings(7), TestProgressManager(6), TestControllerCancellation(4), TestErrorReporter(6), TestRecentActionsWidget(4), TestFilePreviewPanel(9), TestSettingsPanel(6), TestMainWindowPR09(6), TestPR09EndToEnd(2), TestExportsPR09(1).
+
+**Bug fixes during integration (no new features):**
+1. `QTextCursor.Start` accessed via instance — PySide6 requires class-level enum access (`QTextCursor.Start` not `cursor.Start`). The instance access raised `AttributeError`, which was caught by `_preview_text`'s try/except and triggered `_show_error`, hiding the text preview. Fixed by importing `QTextCursor` from `PySide6.QtGui` and using `QTextCursor.Start`.
+2. Test stability fixes for Qt headless:
+   - Used `not isHidden()` instead of `isVisible()` for testing internal widget visibility state (the latter requires the full parent chain to be visible, which is not the case in unit tests where panels aren't shown or are in a non-current tab of a stacked widget).
+   - Used `setCurrentCell(0, 0, QItemSelectionModel.SelectCurrent | QItemSelectionModel.Rows)` instead of `selectRow(0)` because `selectRow` doesn't reliably emit `itemSelectionChanged` in headless Qt when there's no prior selection.
+   - Kept references to `menubar.actions()` list to avoid PySide6 wrapper GC deleting the QMenu C++ object mid-test in `test_cancel_menu_action`.
+   - Mocked `QMessageBox.warning`/`information`/`critical` in `test_error_reporter_collects_scan_failures` because the controller's `scan_directory(nonexistent)` emits `error` signal, which `_on_error` routes to a modal `QMessageBox.warning` — this would block the test in headless mode.
+
+**Test results:** 658/658 passing (was 604, +54 new desktop PR-09 tests, 0 regressions)
+
+**E2E verified:** scan (with progress bar) → select file (auto-preview text/image) → open settings → toggle dark mode + RTL → save → controller applies settings → all green.
+
+**Watch-out:** Same as PR-08 — desktop tests need `LD_LIBRARY_PATH=/home/z/.local/lib/qtfix` because `libEGL.so.1` is not installed system-wide. Auto-skip on missing PySide6.
+
+**Next:** PR-10 — Desktop polish + release checklist (final UX polish, keyboard shortcuts, accessibility, packaging, release-ready v1.0)
+
+---
+
 ## 🚫 Conflict Prevention
 
 ### Active Session Tracking

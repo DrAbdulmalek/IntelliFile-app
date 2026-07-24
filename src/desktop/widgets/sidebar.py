@@ -23,10 +23,12 @@ from PySide6.QtWidgets import (
 
 NAV_ITEMS = [
     ("inventory", "الجرد", "📁"),
+    ("preview", "المعاينة", "🔍"),
     ("rules", "القواعد والتنفيذ", "⚙"),
     ("action_log", "سجل الإجراءات", "📜"),
     ("undo_log", "سجل التراجع", "↩"),
     ("watcher", "المراقب", "👁"),
+    ("settings", "الإعدادات", "🔧"),
 ]
 
 
@@ -76,7 +78,7 @@ class Sidebar(QFrame):
         layout.addStretch(1)
 
         # إصدار في الأسفل
-        version_label = QLabel("IFM v1.0 — PR-08")
+        version_label = QLabel("IFM v1.0 — PR-09")
         version_label.setStyleSheet(
             "color: #6e7681; padding: 12px 20px; font-size: 10px;"
         )
