@@ -19,6 +19,7 @@ Track all AI agent activity across repositories to prevent conflicts, ensure acc
 | Phase 6: PR-02 (FileInventory + tests) | ✅ COMPLETED | Executive Reviewer | 2026-07-24 | 2026-07-24 |
 | Phase 7: PR-03 (Enhanced Metadata) | ✅ COMPLETED | Executive Reviewer | 2026-07-24 | 2026-07-24 |
 | Phase 8: PR-05 (Rule Engine + Dry-Run + Undo) | ✅ COMPLETED | Executive Reviewer | 2026-07-24 | 2026-07-24 |
+| Phase 9: PR-06 (Duplicate Detection + Watch Folders) | ✅ COMPLETED | Executive Reviewer | 2026-07-25 | 2026-07-25 |
 
 ---
 
@@ -44,7 +45,7 @@ Track all AI agent activity across repositories to prevent conflicts, ensure acc
 1. ✅ Add SECURITY_NOTES.md to intelli-file-manager
 2. ✅ Remove DICOM/SyncManager from intelli-file-manager (PR-01, 2026-07-24)
 3. ⏳ Branch cleanup (long-lived feature branches)
-4. 🟡 Disciplined development roadmap (Phase A in progress — PR-02 ✅, PR-03 ✅, PR-05 ✅, PR-06 next)
+4. 🟡 Disciplined development roadmap (Phase A in progress — PR-02 ✅, PR-03 ✅, PR-05 ✅, PR-06 ✅, PR-07 next)
 
 ### Z.ai - VERIFIER ONLY
 
@@ -146,6 +147,27 @@ Track all AI agent activity across repositories to prevent conflicts, ensure acc
 | 15:20 | Ran full suite — 368/368 pass (58 new, 0 regressions) | intelli-file-manager | ✅ |
 | 15:21 | Added PyYAML>=6.0 to requirements.txt | intelli-file-manager | ✅ |
 | 15:22 | Committed + pushed branch + opening PR | intelli-file-manager | ✅ |
+
+### 2026-07-25 - Executive Reviewer (PR-06 — IFM Phase A: duplicate detection + watch folders)
+
+| Time (UTC) | Action | Repository | Status |
+|------------|--------|------------|--------|
+| 10:00 | Merged PR #27 via API (squash, sha=808a6e1) then pulled main | intelli-file-manager | ✅ |
+| 10:02 | Verified watchdog>=3.0.0 in requirements.txt (already declared); installed watchdog 6.0.0 in venv | intelli-file-manager | ✅ |
+| 10:03 | Created branch feat/ifm-duplicate-watch from latest main (b7a96de) | intelli-file-manager | ✅ |
+| 10:05 | Designed DuplicateDetector: exact via SHA-256 + near via cosine similarity on embeddings (PR-02 optional) | intelli-file-manager | ✅ |
+| 10:08 | Wrote src/core/duplicate_detector.py (~310 lines): DuplicateGroup + DuplicateReport + DuplicateDetector + build_duplicate_ruleset + cosine_similarity helper | intelli-file-manager | ✅ |
+| 10:11 | Designed FileWatcher: watchdog Observer + debounce thread + batch flush + auto dry-run + ignore patterns + history | intelli-file-manager | ✅ |
+| 10:14 | Wrote src/core/watcher.py (~360 lines): WatchEvent + WatcherConfig + BatchResult + FileWatcher + _WatchdogHandler | intelli-file-manager | ✅ |
+| 10:16 | Smoke-tested DuplicateDetector with synthetic records — exact + near detection works; build_duplicate_ruleset produces 2 rules per group (keep + redundant) | intelli-file-manager | ✅ |
+| 10:17 | Smoke-tested FileWatcher with real tmp dir — 4 events on 2 files debounced into 1 batch; events JSON written | intelli-file-manager | ✅ |
+| 10:19 | Wrote tests/integration/test_duplicate_detector.py (37 tests, 7 classes): exact, near, reclaimable, FileInventory integration, RuleEngine integration, edge cases, cosine, group properties | intelli-file-manager | ✅ |
+| 10:21 | Fixed test_build_duplicate_ruleset_tags_duplicates assertion (3 actions not 2 — keep=1 + redundant=2) — 37/37 pass | intelli-file-manager | ✅ |
+| 10:23 | Wrote tests/integration/test_watcher.py (27 tests, 8 classes): config, lifecycle, event reception, debounce, flush+batch, auto_dry_run, ignore patterns, history, RuleEngine integration, edge cases, dataclasses | intelli-file-manager | ✅ |
+| 10:24 | Fixed test_plan_actions_match_rule KeyError (DryRunPlan.to_dict has no total_actions key; use len(planned_actions)) — 27/27 pass | intelli-file-manager | ✅ |
+| 10:25 | Ran full suite — 432/432 pass (64 new, 0 regressions) | intelli-file-manager | ✅ |
+| 10:26 | Updated AI_WORKLOG.md (Phase 9 row + PR-06 timeline) | intelli-file-manager | ✅ |
+| 10:27 | Committed + pushed branch + opening PR | intelli-file-manager | ✅ |
 
 ### 2026-07-20 to 2026-07-21 - Z.ai (Previous Work)
 
