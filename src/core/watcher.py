@@ -95,6 +95,9 @@ class WatcherConfig:
     base_dir: str = ""
     # تضمين استخراج المحتوى في FileInventory (ابطال افتراضيًا للسرعة)
     include_content: bool = False
+    # PR-07: ActionLog اختياري لتسجيل كل دفعة في السجل المرئي
+    # لو None، لا تُسجَّل الدفعات في ActionLog
+    action_log: Optional[object] = None  # ActionLog — استيراد كسوري
 
     def to_dict(self) -> dict:
         d = asdict(self)
@@ -104,6 +107,8 @@ class WatcherConfig:
                 d["ruleset"] = self.ruleset.to_dict()
             except Exception:
                 d["ruleset"] = None
+        # action_log ليس serializable
+        d["action_log"] = None
         return d
 
 
@@ -380,6 +385,23 @@ class FileWatcher:
                     report_path = Path(self.config.output_dir) / f"report_{batch_id}.html"
                     generate_html_report(plan, output_path=report_path)
                     result.report_path = str(report_path)
+
+                # PR-07: تسجيل الدفعة في ActionLog (لو مُفعّل)
+                if self.config.action_log is not None:
+                    try:
+                        from .action_log import SOURCE_WATCHER
+                        for planned_action in plan.planned_actions:
+                            self.config.action_log.log(
+                                action_type=f"watch:{planned_action.action.type}",
+                                file_path=planned_action.file_path,
+                                file_path_after=planned_action.target_path,
+                                rule_name=planned_action.rule_name,
+                                success=True,
+                                source=SOURCE_WATCHER,
+                                timestamp=datetime.now().isoformat(timespec="seconds"),
+                            )
+                    except Exception as e:
+                        logger.warning(f"FileWatcher: فشل تسجيل الدفعة في ActionLog: {e}")
 
             # كتابة سجل الدفعة (events)
             events_path = Path(self.config.output_dir) / f"events_{batch_id}.json"
