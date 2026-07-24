@@ -212,6 +212,42 @@ Track all AI agent activity across repositories to prevent conflicts, ensure acc
 - ❌ Code duplication (3 mobile apps in omni-medical-suite)
 - ✅ PAT token exposed (REVOKED)
 
+### Phase C — PR-08: Desktop UX Foundation (PySide6) — 2026-07-25
+
+**Branch:** `feat/ifm-desktop-ux-foundation` (off `main` after PR-07 merge)
+**Goal:** بناء أساس واجهة سطح المكتب PySide6 — نوافذ، لوحات، تكامل كامل مع IFM core.
+**Scope boundary:** لا AI، لا medical، لا ميزات جديدة خارج UX. فقط عرض وتكامل.
+
+**Files added (src/desktop/):**
+- `theme.py` (340 LOC) — Light + Dark QSS + RTL Arabic + Noto Sans Arabic + QPalette
+- `main_window.py` (430 LOC) — `IFMMainWindow(QMainWindow)`: sidebar + central QStackedWidget + IFMStatusBar + QMenuBar (ملف/عرض/مساعدة)
+- `app.py` (75 LOC) — entry point with argparse (--base-dir, --ruleset, --theme, --no-rtl)
+- `controllers/ifm_controller.py` (360 LOC) — `IFMController(QObject)`: owns FileInventory + RuleEngine + UndoLog + ActionLog + FileWatcher; 14 Qt signals for every event
+- `panels/inventory_panel.py` (175 LOC) — جدول 7 أعمدة + إحصائيات (ملف، حجم، مكررات)
+- `panels/rule_engine_panel.py` (210 LOC) — load YAML → dry-run → execute → results table
+- `panels/action_log_panel.py` (200 LOC) — جدول 7 أعمدة + تصفية (نجاح/مصدر) + تصدير JSON/HTML
+- `panels/undo_log_panel.py` (155 LOC) — جدول + undo last + undo all + تأكيدات
+- `panels/watcher_panel.py` (190 LOC) — بدء/إيقاف + جدول أحداث مباشرة (cap 200) + سجل الدفعات
+- `widgets/sidebar.py` (90 LOC) — قائمة تنقل جانبية 220px + 5 عناصر + إشارة nav_clicked
+- `widgets/status_bar.py` (60 LOC) — شريط حالة مع WatcherIndicator + StatsLabel
+- `widgets/watcher_indicator.py` (95 LOC) — LED مؤشر (idle/running/pending/error) + QTimer
+
+**Files added (tests):**
+- `tests/integration/test_desktop_ux.py` (820 LOC) — 82 tests in 9 classes: TestTheme(8), TestSidebar(5), TestWatcherIndicator(7), TestIFMStatusBar(4), TestIFMController(15), TestInventoryPanel(7), TestRuleEnginePanel(7), TestActionLogPanel(7), TestUndoLogPanel(4), TestWatcherPanel(7), TestIFMMainWindow(8), TestWatcherIntegration(4)
+- `tests/integration/conftest.py` (95 LOC) — qapp fixture + tmp_with_files + default_ruleset_path + auto-skip if PySide6 unavailable
+
+**Files modified:**
+- `pytest.ini` — added `desktop` marker
+- `requirements.txt` — already declares `pyside6>=6.6.0`
+
+**Test results:** 604/604 passing (was 522, +82 new desktop UX tests)
+
+**E2E verified:** scan → dry-run → execute → undo_last → export JSON + HTML → all green
+
+**Watch-out:** اختبارات desktop تتطلب `LD_LIBRARY_PATH=/home/z/.local/lib/qtfix python -m pytest` لأن `libEGL.so.1` غير مثبّت على مستوى النظام. لو لم يُضبط، تتخطى الاختبارات تلقائيًا (auto-skip).
+
+**Next:** PR-09 — Progress + Previews + Settings (شريط تقدّم، معاينة الصور، إعدادات)
+
 ---
 
 ## 🚫 Conflict Prevention
