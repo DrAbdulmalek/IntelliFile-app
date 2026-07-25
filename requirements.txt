@@ -9,7 +9,7 @@
 # ─── Core ────────────────────────────────────────────────────────────────────
 # Required for basic file operations, GUI, and scheduling
 pyside6>=6.6.0
-magika>=0.5.0
+magika>=1.0.3
 httpx>=0.24.0
 watchdog>=3.0.0
 apscheduler>=3.10.0
