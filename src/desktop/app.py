@@ -2,10 +2,11 @@
 
 الاستخدام:
     python -m src.desktop.app [--base-dir DIR] [--ruleset YAML] [--dark|--light]
-                              [--settings PATH]
+                              [--settings PATH] [--version]
 
 PR-08 من development-roadmap-v1.0 (IFM Phase C)
 PR-09 من development-roadmap-v1.0 (progress + previews + settings)
+PR-10 من development-roadmap-v1.0 (polish + keyboard shortcuts + crash recovery + v2.2.0)
 """
 from __future__ import annotations
 
@@ -16,7 +17,10 @@ from pathlib import Path
 
 from PySide6.QtWidgets import QApplication
 
+from src import __version__
+
 from .controllers.ifm_controller import IFMController
+from .crash_recovery import CrashRecovery
 from .main_window import IFMMainWindow
 from .settings import IFMSettings
 from .theme import init_app_theme
@@ -60,6 +64,12 @@ def parse_args(argv: list | None = None) -> argparse.Namespace:
         action="store_true",
         help="إيقاف دعم RTL (الافتراضي: من الإعدادات)",
     )
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"IntelliFile {__version__}",
+        help="إظهار الإصدار والخروج",
+    )
     return parser.parse_args(argv)
 
 
@@ -84,6 +94,9 @@ def main(argv: list | None = None) -> int:
         rtl=settings.rtl,
     )
 
+    # PR-10: تركيب معالج الأعطال العام قبل إنشاء الـ controller
+    crash_recovery = CrashRecovery(parent=app)
+
     controller = IFMController(
         base_dir=args.base_dir,
         ruleset_path=args.ruleset,
@@ -91,7 +104,11 @@ def main(argv: list | None = None) -> int:
         action_log_path=args.action_log,
         settings=settings,
     )
-    window = IFMMainWindow(controller=controller, base_dir=args.base_dir)
+    window = IFMMainWindow(
+        controller=controller,
+        base_dir=args.base_dir,
+        crash_recovery=crash_recovery,
+    )
     window.show()
     return app.exec()
 

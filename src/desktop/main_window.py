@@ -11,9 +11,11 @@
   - تحديثات الحالة تُبَث للوحة status bar
   - إشارات التقدّم والإلغاء تُربط بـ ProgressManager في الـ status bar (PR-09)
   - إشارات الأخطاء تُربط بـ ErrorReporter في الـ status bar (PR-09)
+  - اختصارات لوحة المفاتيح + استرداد الأعطال (PR-10)
 
 PR-08 من development-roadmap-v1.0 (IFM Phase C)
 PR-09 من development-roadmap-v1.0 (progress + previews + settings)
+PR-10 من development-roadmap-v1.0 (polish + keyboard shortcuts + crash recovery)
 """
 from __future__ import annotations
 
@@ -32,6 +34,8 @@ from PySide6.QtWidgets import (
 )
 
 from .controllers.ifm_controller import IFMController, IFMStateSnapshot
+from .crash_recovery import CrashRecovery
+from .keyboard_shortcuts import ShortcutManager
 from .panels.action_log_panel import ActionLogPanel
 from .panels.inventory_panel import InventoryPanel
 from .panels.preview_panel import FilePreviewPanel
@@ -53,6 +57,7 @@ class IFMMainWindow(QMainWindow):
         controller: IFMController | None = None,
         base_dir: str | None = None,
         parent: QWidget | None = None,
+        crash_recovery: CrashRecovery | None = None,
     ):
         super().__init__(parent)
         self.setWindowTitle("IntelliFile — منظّم الملفات الذكي")
@@ -67,6 +72,15 @@ class IFMMainWindow(QMainWindow):
         self._build_ui()
         self._build_menu()
         self._connect_signals()
+
+        # ─── PR-10: Keyboard shortcuts ─────────────────────────────────
+        self.shortcut_manager = ShortcutManager(self)
+        self._connect_shortcuts()
+
+        # ─── PR-10: Crash recovery ─────────────────────────────────────
+        self.crash_recovery = crash_recovery or CrashRecovery(parent=self)
+        self.crash_recovery.crash_detected.connect(self._on_crash_detected)
+        self._restore_session()
 
         # ─── Initial state ─────────────────────────────────────────────
         self.rule_engine_panel.set_ruleset_info(
@@ -262,22 +276,25 @@ class IFMMainWindow(QMainWindow):
             self.settings_panel.set_settings(self.controller.settings)
 
     def _on_about(self) -> None:
+        from src import __version__
         QMessageBox.about(
             self, "حول IntelliFile",
-            "<h3>IntelliFile — منظّم الملفات الذكي</h3>"
-            "<p>IFM Desktop UX — PR-09 (Phase C)</p>"
-            "<p>واجهة PySide6 مع تكامل كامل لطبقة IFM الأساسية:</p>"
-            "<ul>"
-            "<li>FileInventory — جرد الملفات</li>"
-            "<li>FilePreview — معاينة النص والصور</li>"
-            "<li>RuleEngine — قواعد + محاكاة + تنفيذ</li>"
-            "<li>ActionLog — سجل مرئي + JSON/HTML</li>"
-            "<li>UndoLog — تراجع كامل</li>"
-            "<li>FileWatcher — مراقبة مباشرة</li>"
-            "<li>ProgressManager — شريط تقدّم قابل للإلغاء</li>"
-            "<li>Settings — إعدادات قابلة للتخصيص</li>"
-            "</ul>"
-            "<p><i>لا AI، لا medical — فقط UX foundation.</i></p>"
+            f"<h3>IntelliFile — منظّم الملفات الذكي</h3>"
+            f"<p>الإصدار {__version__} — Phase C مكتملة</p>"
+            f"<p>واجهة PySide6 مع تكامل كامل لطبقة IFM الأساسية:</p>"
+            f"<ul>"
+            f"<li>FileInventory — جرد الملفات</li>"
+            f"<li>FilePreview — معاينة النص والصور</li>"
+            f"<li>RuleEngine — قواعد + محاكاة + تنفيذ</li>"
+            f"<li>ActionLog — سجل مرئي + JSON/HTML</li>"
+            f"<li>UndoLog — تراجع كامل</li>"
+            f"<li>FileWatcher — مراقبة مباشرة</li>"
+            f"<li>ProgressManager — شريط تقدّم قابل للإلغاء</li>"
+            f"<li>Settings — إعدادات قابلة للتخصيص</li>"
+            f"<li>KeyboardShortcuts — اختصارات لوحة المفاتيح</li>"
+            f"<li>CrashRecovery — استرداد الأعطال + حفظ الجلسة</li>"
+            f"</ul>"
+            f"<p><i>اختصارات: Ctrl+R, F5, Ctrl+Z, Ctrl+F, Ctrl+,, Ctrl+P, Ctrl+T, Esc</i></p>"
         )
 
     # ─── Slots: Inventory + Preview ─────────────────────────────────────────
@@ -560,6 +577,93 @@ class IFMMainWindow(QMainWindow):
     # ─── Lifecycle ──────────────────────────────────────────────────────────
 
     def closeEvent(self, event) -> None:
-        """تنظيف الموارد قبل الإغلاق"""
+        """تنظيف الموارد قبل الإغلاق + حفظ الجلسة"""
+        # PR-10: حفظ حالة الجلسة لاستردادها عند إعادة التشغيل
+        try:
+            self.crash_recovery.set_session_value(
+                "last_directory", str(self.controller.base_dir)
+            )
+            self.crash_recovery.set_session_value(
+                "last_panel", self.stack.currentIndex()
+            )
+            self.crash_recovery.set_session_value(
+                "last_theme", "dark" if self.controller.settings.dark_mode else "light"
+            )
+        except Exception:
+            pass
+
         self.controller.cleanup()
+        self.crash_recovery.cleanup()
         super().closeEvent(event)
+
+    # ─── PR-10: Keyboard shortcuts ─────────────────────────────────────────
+
+    def _connect_shortcuts(self) -> None:
+        """ربط اختصارات لوحة المفاتيح بـ slots المناسبة."""
+        self.shortcut_manager.refresh_requested.connect(self._on_refresh)
+        self.shortcut_manager.scan_requested.connect(self._on_scan_shortcut)
+        self.shortcut_manager.undo_requested.connect(self._on_undo_last)
+        self.shortcut_manager.search_requested.connect(self._on_search)
+        self.shortcut_manager.settings_requested.connect(lambda: self._on_nav("settings"))
+        self.shortcut_manager.preview_requested.connect(lambda: self._on_nav("preview"))
+        self.shortcut_manager.toggle_theme_requested.connect(self._on_toggle_theme)
+        self.shortcut_manager.cancel_requested.connect(self._on_cancel_operation)
+
+    def _on_refresh(self) -> None:
+        """Ctrl+R — تحديث العرض الحالي."""
+        current = self.stack.currentWidget()
+        if current is self.inventory_panel:
+            self._on_scan_requested(str(self.controller.base_dir))
+        elif current is self.action_log_panel:
+            self.action_log_panel.set_entries(self.controller.action_log.list_entries())
+        elif current is self.undo_log_panel:
+            self.undo_log_panel.set_entries(self.controller.undo_log.list_entries())
+        self.status_bar.set_message("تم التحديث")
+
+    def _on_scan_shortcut(self) -> None:
+        """F5 — فحص المجلد الحالي."""
+        self._on_scan_requested(str(self.controller.base_dir))
+
+    def _on_search(self) -> None:
+        """Ctrl+F — تركيز البحث في اللوحة الحالية."""
+        current = self.stack.currentWidget()
+        focus_search = getattr(current, "focus_search", None)
+        if callable(focus_search):
+            focus_search()
+        else:
+            self.status_bar.set_message("لا يوجد بحث في هذه اللوحة")
+
+    def _restore_session(self) -> None:
+        """استعادة آخر جلسة محفوظة (آخر مجلد + آخر لوحة)."""
+        session = self.crash_recovery.load_session()
+        last_dir = session.get("last_directory")
+        if last_dir and Path(last_dir).exists():
+            try:
+                self.controller.base_dir = Path(last_dir)
+                self.inventory_panel.set_path(last_dir)
+            except Exception:
+                pass
+        last_panel = session.get("last_panel")
+        if isinstance(last_panel, int) and 0 <= last_panel < self.stack.count():
+            self.stack.setCurrentIndex(last_panel)
+
+    def _on_crash_detected(self, crash_path: str) -> None:
+        """عند التقاط عطل — يُظهر حوار استرداد للمستخدم."""
+        try:
+            last = self.crash_recovery.get_last_crash()
+            if last is None:
+                return
+            reply = QMessageBox.warning(
+                self,
+                "استرداد الجلسة",
+                f"تعطل التطبيق في المرة السابقة.\n"
+                f"نوع الخطأ: {last.get('exception_type', 'غير معروف')}\n"
+                f"الرسالة: {last.get('message', '')[:200]}\n\n"
+                f"هل تريد استعادة آخر مجلد مفتوح؟",
+                QMessageBox.Yes | QMessageBox.No,
+                QMessageBox.Yes,
+            )
+            if reply == QMessageBox.Yes:
+                self._restore_session()
+        except Exception:
+            pass

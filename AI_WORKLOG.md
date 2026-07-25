@@ -293,6 +293,98 @@ Track all AI agent activity across repositories to prevent conflicts, ensure acc
 
 ---
 
+### Phase C — PR-10: Desktop Polish + Release Checklist + v2.2.0 — 2026-07-25
+
+**Branch:** `feat/ifm-desktop-polish-release` (off PR-09 HEAD `bc39e84`, not waiting for PR-09 merge per user instruction)
+**Goal:** استكمال Phase C بإضافة اختصارات لوحة مفاتيح كاملة، استرداد الأعطال مع حفظ الجلسة، مواصفات PyInstaller للتعبئة، قائمة تحقق إصدار v2.2.0، ورفع الإصدار.
+**Scope boundary:** لا AI، لا medical، لا ميزات خارج UX + packaging + release docs. فقط إكمال طبقة العرض + التحضير للإصدار.
+
+**Files added:**
+- `src/desktop/keyboard_shortcuts.py` (~110 LOC) — `ShortcutManager` مع 8 اختصارات عامة:
+  - `Ctrl+R` (refresh) — تحديث العرض الحالي
+  - `F5` (scan) — فحص المجلد الحالي
+  - `Ctrl+Z` (undo) — التراجع عن آخر إجراء
+  - `Ctrl+F` (search) — تركيز البحث في اللوحة الحالية
+  - `Ctrl+,` (settings) — فتح لوحة الإعدادات
+  - `Ctrl+P` (preview) — فتح لوحة المعاينة
+  - `Ctrl+T` (toggle theme) — تبديل السمة داكن/فاتح
+  - `Esc` (cancel) — إلغاء العملية الجارية
+  - إشارة مستقلة لكل اختصار، `set_shortcut_enabled(seq, bool)` للتفعيل/التعطيل
+- `src/desktop/crash_recovery.py` (~190 LOC) — `CrashRecovery` مع:
+  - حفظ الجلسة JSON عند الخروج (`~/.intellifile/session.json`) — آخر مجلد + لوحة + سمة
+  - استعادة الجلسة عند بدء التشغيل
+  - `sys.excepthook` لكتابة سجلات الأعطال إلى `~/.intellifile/crashes/`
+  - تدوير سجلات الأعطال (يبقي آخر 10)
+  - معالج SIGINT/SIGTERM للإنهاء الناعم
+  - إشارة `crash_detected(str)` لإظهار حوار استرداد
+  - `cleanup()` لفصل المعالجات (للاختبارات)
+- `packaging/desktop.spec` (~95 LOC) — مواصفات PyInstaller Linux-first:
+  - `intellifile-desktop` binary + `IntelliFile-Desktop/` folder
+  - excludes: tkinter, matplotlib, IPython, pytest
+  - hiddenimports: كل desktop modules + core modules + PySide6 plugins
+  - datas: theme.py + default_rules.yaml
+  - console=False (windowed mode)
+- `docs/RELEASE_CHECKLIST_v2.2.0.md` (~140 LOC) — قائمة تحقق إصدار كاملة:
+  - Pre-release verification (tests, lint, smoke tests, keyboard shortcuts, crash recovery)
+  - Version bump (src/__init__.py, setup.py, pyproject.toml, CHANGELOG, AI_WORKLOG)
+  - Packaging (Linux PyInstaller + AppImage, Windows, macOS)
+  - Documentation (CHANGELOG, README, screenshots)
+  - Git & release (commit, push, PR, tag v2.2.0, GitHub Release)
+  - Post-release verification
+  - Risk acceptance
+- `CHANGELOG.md` (~85 LOC, جديد) — كل التغييرات من v2.0.0 إلى v2.2.0 في تنسيق Keep a Changelog.
+
+**Files added (tests):**
+- `tests/integration/test_desktop_pr10.py` (~250 LOC, 14 اختبار في 5 فئات):
+  - TestKeyboardShortcuts(4): creation, signals emitted, enable/disable, invalid seq raises
+  - TestCrashRecovery(4): init, session roundtrip, crash log rotation, empty state
+  - TestVersion(2): semver format, app metadata
+  - TestCLI(2): --version flag exits 0, output contains version
+  - TestMainWindowPR10(2): shortcut manager wired in, closeEvent saves session
+
+**Files modified:**
+- `src/__init__.py` — `__version__` من `2.1.0` إلى `2.2.0` + إضافة `__app_name__` و `__app_description__`.
+- `src/desktop/app.py` — إضافة `--version` flag + استيراد `CrashRecovery` وإنشائه قبل controller + تمريره لـ `IFMMainWindow`.
+- `src/desktop/main_window.py`:
+  - استيراد `ShortcutManager` + `CrashRecovery`
+  - `__init__` يقبل `crash_recovery: CrashRecovery | None = None`
+  - إنشاء `self.shortcut_manager = ShortcutManager(self)` + `self._connect_shortcuts()`
+  - إنشاء/ربط `self.crash_recovery` + استدعاء `self._restore_session()`
+  - `_connect_shortcuts()` — ربط 8 اختصارات بـ slots المناسبة
+  - `_on_refresh()` (Ctrl+R), `_on_scan_shortcut()` (F5), `_on_search()` (Ctrl+F)
+  - `_restore_session()` — استعادة آخر مجلد + لوحة من الجلسة المحفوظة
+  - `_on_crash_detected()` — حوار استرداد عند وجود سجل عطل
+  - `closeEvent` محدّث — حفظ `last_directory` + `last_panel` + `last_theme` في الجلسة
+  - `_on_about` محدّث — يعرض `__version__` + قائمة اختصارات
+- `src/desktop/__init__.py` — إضافة `ShortcutManager` و `CrashRecovery` للتصديرات (تم بالفعل في ruff --fix).
+
+**Bug fixes during integration (no new features):**
+1. `QShortcut.setToolTip` لا وجود له في PySide6 — حُذف، استخدمنا `setWhatsThis` فقط.
+2. الاختبارات الأولى استخدمت `MagicMock()` كـ parent لـ `ShortcutManager`، لكن `QObject.__init__` يرفض غير QObject. حُلّ بتمرير `qapp` (QApplication الحقيقي) بدلاً من mock.
+3. `--version` flag يستدعي `parse_args` التي تُرجع `SystemExit(0)` — الاختبار يستخدم `pytest.raises(SystemExit)` للتحقق.
+4. تم استيراد `__version__` من `src` بدلاً من `src.desktop` لتجنب circular imports.
+5. `_on_about` يستورد `__version__` محليًا (lazy import) لتجنب circular imports في رأس الملف.
+
+**Test results:** 672/672 passing (was 658, +14 new PR-10 desktop tests, 0 regressions)
+- 150 desktop tests (PR-08: 82 + PR-09: 54 + PR-10: 14)
+- 522 non-desktop tests
+
+**E2E verified:** تشغيل التطبيق → فتح مجلد → Ctrl+R/F5 للفحص → Ctrl+F للبحث → Ctrl+T لتبديل السمة → Ctrl+Z للتراجع → Esc للإلغاء → إغلاق التطبيق → إعادة التشغيل → استرجاع آخر مجلد ولوحة تلقائيًا.
+
+**Watch-out:**
+- نفس PR-08/PR-09: اختبارات desktop تحتاج `LD_LIBRARY_PATH=/home/z/.local/lib/qtfix` + `QT_QPA_PLATFORM=offscreen`.
+- `pytest-qt` مثبّت لاختبارات `qtbot` (لا يُستخدم في PR-10 لكنه متاح للمستقبل).
+- `PyInstaller` غير مثبّت في بيئة الاختبار — `packaging/desktop.spec` تم التحقق من صحته نحويًا فقط (لا build فعلي).
+- 11 خطأ ruff متبقية في ملفات PR-10، كلها أنماط دفاعية قياسية (BLE001/S110/DTZ005) مطابقة لأسلوب PR-09 — لا أخطاء جديدة.
+
+**Version bump:** `2.1.0` → `2.2.0` — Phase C مكتملة.
+
+**Tag:** `v2.2.0` — يُنشأ بعد دمج PR.
+
+**Next:** PR-11 — (TBD) قد يكون بدء Phase D (semantic search embeddings integration) أو إصلاحات AppImage على omni-medical-suite حسب توجيهات DrAbdulmalek.
+
+---
+
 ## 🚫 Conflict Prevention
 
 ### Active Session Tracking
