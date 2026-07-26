@@ -101,16 +101,22 @@ class FilePreviewPanel(QWidget):
 
         # ─── معلومات الملف ─────────────────────────────────────────────────
         info_box = QGroupBox("معلومات الملف")
+        info_box.setToolTip("معلومات أساسية عن الملف المحدّد")
         info_layout = QVBoxLayout(info_box)
         info_layout.setSpacing(4)
 
         self._name_label = QLabel("—")
+        self._name_label.setToolTip("اسم الملف")
         self._path_label = QLabel("—")
         self._path_label.setWordWrap(True)
         self._path_label.setStyleSheet("color: #656d76; font-size: 11px;")
+        self._path_label.setToolTip("المسار الكامل للملف")
         self._size_label = QLabel("—")
+        self._size_label.setToolTip("حجم الملف بالبايت/KB/MB")
         self._type_label = QLabel("—")
+        self._type_label.setToolTip("نوع MIME للملف")
         self._modified_label = QLabel("—")
+        self._modified_label.setToolTip("تاريخ آخر تعديل للملف")
 
         info_layout.addWidget(self._name_label)
         info_layout.addWidget(self._path_label)

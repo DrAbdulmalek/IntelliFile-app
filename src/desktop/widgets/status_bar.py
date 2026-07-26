@@ -36,23 +36,28 @@ class IFMStatusBar(QStatusBar):
 
         # مؤشر المراقب
         self.watcher_indicator = WatcherIndicator(self)
+        self.watcher_indicator.setToolTip("حالة مراقب المجلد (يعمل/متوقف/خطأ)")
         self.addPermanentWidget(self.watcher_indicator)
 
         # تسمية الإحصائيات
         self.stats_label = QLabel("0 ملف | 0 إجراء | 0 تراجع")
         self.stats_label.setObjectName("StatsLabel")
+        self.stats_label.setToolTip("عدد الملفات المفهرسة + الإجراءات المنفّذة + عمليات التراجع")
         self.addPermanentWidget(self.stats_label)
 
         # عدّاد الأخطاء (PR-09)
         self.error_reporter = ErrorReporter(self)
+        self.error_reporter.setToolTip("عدّاد الأخطاء والتحذيرات — انقر للتفاصيل")
         self.addPermanentWidget(self.error_reporter)
 
         # شريط التقدّم القابل للإلغاء (PR-09)
         self.progress_manager = ProgressManager(self)
+        self.progress_manager.setToolTip("شريط التقدّم للعملية الجارية — انقر إلغاء للإيقاف (Esc)")
         self.addPermanentWidget(self.progress_manager)
 
         # رسالة عامة
         self._message_label = QLabel("جاهز")
+        self._message_label.setToolTip("رسالة الحالة العامة")
         self.addWidget(self._message_label)
 
     def set_stats(self, files: int, actions: int, undo: int) -> None:

@@ -377,11 +377,40 @@ Track all AI agent activity across repositories to prevent conflicts, ensure acc
 - `PyInstaller` غير مثبّت في بيئة الاختبار — `packaging/desktop.spec` تم التحقق من صحته نحويًا فقط (لا build فعلي).
 - 11 خطأ ruff متبقية في ملفات PR-10، كلها أنماط دفاعية قياسية (BLE001/S110/DTZ005) مطابقة لأسلوب PR-09 — لا أخطاء جديدة.
 
+**Gap-fill (PR-10 polish supplement):**
+- `src/desktop/widgets/sidebar.py`:
+  - `NAV_ITEMS` أصبحت 4-tuple `(id, label, icon, tooltip)` بدلًا من 3-tuple
+  - كل زر تنقّل يحمل `setToolTip` + `setStatusTip` + `setWhatsThis`
+  - إضافة `get_button(nav_id)` للوصول لزر معيّن (لاختبارات tab order)
+  - تحديث تسمية الإصدار من `"IFM v1.0 — PR-09"` إلى `"IFM v2.2.0 — PR-10"`
+- `src/desktop/panels/inventory_panel.py`:
+  - `path_edit` + `browse_btn` + `scan_btn` + `table` كلها تحمل `setToolTip` + `setStatusTip`
+- `src/desktop/panels/preview_panel.py`:
+  - `info_box` + 5 labels (`_name`, `_path`, `_size`, `_type`, `_modified`) تحمل `setToolTip`
+- `src/desktop/widgets/status_bar.py`:
+  - `watcher_indicator` + `stats_label` + `error_reporter` + `progress_manager` + `_message_label` تحمل `setToolTip`
+- `src/desktop/main_window.py`:
+  - إضافة `_setup_tooltips()` — tooltip على النافذة + 4 menu actions
+  - إضافة `_setup_tab_order()` — `setTabOrder` بين path_edit → scan_btn → table + بين أزرار الـ sidebar
+- `setup.py`: `version` من `2.0.0` إلى `2.2.0` (لمزامنة مع `src/__init__.py`)
+- `README.md`: إضافة قسم "Running the Desktop App" مع جدول اختصارات لوحة المفاتيح (10 اختصارات) + قائمة ميزات Phase C + ملاحظة libEGL
+- `tests/integration/test_desktop_pr10.py` — إضافة `TestTooltipsAndTabOrder` مع 7 اختبارات:
+  - sidebar buttons have tooltips
+  - sidebar version label updated to v2.2.0
+  - inventory panel tooltips
+  - status bar tooltips
+  - main window tooltips (window + statusTip + menubar)
+  - main window tab order set
+  - setup.py version matches src/__init__.py
+- `tests/integration/test_desktop_pr09.py`: تحديث `test_nav_items_includes_preview_and_settings` ليتوافق مع 4-tuple الجديد (استخدام `item[0]` بدلًا من unpacking)
+
+**Test results (after gap-fill):** 679/679 passing (was 672, +7 tooltip/tab-order tests, 1 PR-09 test fixed to handle 4-tuple)
+
 **Version bump:** `2.1.0` → `2.2.0` — Phase C مكتملة.
 
 **Tag:** `v2.2.0` — يُنشأ بعد دمج PR.
 
-**Next:** PR-11 — (TBD) قد يكون بدء Phase D (semantic search embeddings integration) أو إصلاحات AppImage على omni-medical-suite حسب توجيهات DrAbdulmalek.
+**Next:** Phase A–C مكتملة — جاهز للإصدار v2.2.0.
 
 ---
 

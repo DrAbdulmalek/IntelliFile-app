@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="intellifile",
-    version="2.0.0",
+    version="2.2.0",
     description="تطبيق إدارة الملفات الذكي المحلي — Hybrid Search + Smart Tags + File Copilot + NER",
     author="Dr. Abdulmalek",
     packages=find_packages(),

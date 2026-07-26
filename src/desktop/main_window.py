@@ -92,6 +92,10 @@ class IFMMainWindow(QMainWindow):
         # ─── تطبيق الإعدادات المحفوظة ──────────────────────────────────
         self._apply_initial_settings(self.controller.settings)
 
+        # ─── PR-10: Tooltips + Tab order ─────────────────────────────────
+        self._setup_tooltips()
+        self._setup_tab_order()
+
     # ─── Build UI ───────────────────────────────────────────────────────────
 
     def _build_ui(self) -> None:
@@ -520,6 +524,44 @@ class IFMMainWindow(QMainWindow):
             app.setLayoutDirection(Qt.RightToLeft if settings.rtl else Qt.LeftToRight)
         # تحديث الـ SettingsPanel لإ reflect القيم الفعلية المطبّقة
         self.settings_panel.set_settings(settings)
+
+    # ─── PR-10: Tooltips + Tab order ────────────────────────────────────────
+
+    def _setup_tooltips(self) -> None:
+        """تركيب tooltips/statusTips على المكونات الرئيسية."""
+        # الـ window نفسها
+        self.setToolTip("IntelliFile — منظّم الملفات الذكي (Ctrl+R تحديث، F5 فحص، Esc إلغاء)")
+        self.setStatusTip("IntelliFile v2.2.0")
+        # قائمة المنيو
+        menubar = self.menuBar()
+        for action in menubar.actions():
+            if "ملف" in action.text():
+                action.setToolTip("أوامر الملف (فتح، خروج)")
+            elif "عرض" in action.text():
+                action.setToolTip("أوامر العرض (تبديل السمة Ctrl+T)")
+            elif "إجراءات" in action.text():
+                action.setToolTip("أوامر الإجراءات (إلغاء Esc)")
+            elif "مساعدة" in action.text():
+                action.setToolTip("مساعدة + حول التطبيق")
+
+    def _setup_tab_order(self) -> None:
+        """ترتيب التنقّل بـ Tab بين مكوّنات الواجهة.
+
+        الترتيب: sidebar buttons → inventory toolbar → central stack
+        """
+        from PySide6.QtWidgets import QWidget
+        # tab order داخل لوحة الجرد (path_edit → browse → scan → table)
+        QWidget.setTabOrder(self.inventory_panel.path_edit, self.inventory_panel.scan_btn)
+        QWidget.setTabOrder(self.inventory_panel.scan_btn, self.inventory_panel.table)
+        # tab order بين أزرار الـ sidebar (ويسمح بالتنقّل بين اللوحات)
+        prev = None
+        for nav_id in self.sidebar.nav_ids:
+            btn = self.sidebar.get_button(nav_id)
+            if btn is None:
+                continue
+            if prev is not None:
+                QWidget.setTabOrder(prev, btn)
+            prev = btn
 
     # ─── Slots: Progress + Cancellation (PR-09) ─────────────────────────────
 

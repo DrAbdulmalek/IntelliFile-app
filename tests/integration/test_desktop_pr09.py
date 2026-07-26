@@ -768,7 +768,8 @@ class TestExportsPR09:
 
     def test_nav_items_includes_preview_and_settings(self):
         from src.desktop.widgets.sidebar import NAV_ITEMS
-        nav_ids = [nid for nid, _, _ in NAV_ITEMS]
+        # NAV_ITEMS may be 3-tuple (id, label, icon) or 4-tuple (id, label, icon, tooltip)
+        nav_ids = [item[0] for item in NAV_ITEMS]
         assert "preview" in nav_ids
         assert "settings" in nav_ids
         assert "inventory" in nav_ids

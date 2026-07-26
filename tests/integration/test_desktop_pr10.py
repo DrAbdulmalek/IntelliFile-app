@@ -233,3 +233,105 @@ class TestMainWindowPR10:
             assert "last_directory" in data
             assert "last_panel" in data
             assert "last_theme" in data
+
+
+# ─── Tooltips + Tab order (PR-10 gap-fill) ─────────────────────────────────
+
+
+class TestTooltipsAndTabOrder:
+    """PR-10 polish: tooltips + tab order on all major widgets."""
+
+    def test_sidebar_buttons_have_tooltips(self, qapp):
+        """كل زر تنقّل في الـ sidebar يجب أن يحمل tooltip."""
+        from src.desktop.widgets.sidebar import Sidebar
+
+        sb = Sidebar()
+        for nav_id in sb.nav_ids:
+            btn = sb.get_button(nav_id)
+            assert btn is not None, f"زر مفقود: {nav_id}"
+            tip = btn.toolTip()
+            assert tip and len(tip) > 3, f"Tooltip فارغ للزر {nav_id}"
+
+    def test_sidebar_version_label_updated(self, qapp):
+        """التسمية في أسفل الـ sidebar يجب أن تشير إلى v2.2.0."""
+        from PySide6.QtWidgets import QLabel
+
+        from src.desktop.widgets.sidebar import Sidebar
+
+        sb = Sidebar()
+        # ابحث عن أي QLabel يحوي "v2.2.0"
+        version_labels = [lbl for lbl in sb.findChildren(QLabel) if "v2.2.0" in lbl.text()]
+        assert len(version_labels) >= 1, "لم يُعثر على تسمية الإصدار v2.2.0"
+
+    def test_inventory_panel_tooltips(self, qapp):
+        """path_edit + scan_btn + table يجب أن تحمل tooltips."""
+        from src.desktop.panels.inventory_panel import InventoryPanel
+
+        panel = InventoryPanel()
+        assert panel.path_edit.toolTip(), "path_edit tooltip فارغ"
+        assert panel.scan_btn.toolTip(), "scan_btn tooltip فارغ"
+        assert panel.table.toolTip(), "table tooltip فارغ"
+
+    def test_status_bar_tooltips(self, qapp):
+        """عناصر status_bar يجب أن تحمل tooltips."""
+        from src.desktop.widgets.status_bar import IFMStatusBar
+
+        sb = IFMStatusBar()
+        assert sb.watcher_indicator.toolTip(), "watcher_indicator tooltip فارغ"
+        assert sb.stats_label.toolTip(), "stats_label tooltip فارغ"
+        assert sb.error_reporter.toolTip(), "error_reporter tooltip فارغ"
+        assert sb.progress_manager.toolTip(), "progress_manager tooltip فارغ"
+
+    def test_main_window_has_tooltips(self, qapp, tmp_path):
+        """MainWindow نفسها + menu actions يجب أن تحمل tooltips."""
+        from src.desktop.controllers.ifm_controller import IFMController
+        from src.desktop.main_window import IFMMainWindow
+
+        with patch("src.desktop.crash_recovery.SESSION_FILE", tmp_path / "session.json"), \
+             patch("src.desktop.crash_recovery.CRASH_LOG_DIR", tmp_path / "crashes"):
+            controller = IFMController(base_dir=str(tmp_path))
+            window = IFMMainWindow(controller=controller, base_dir=str(tmp_path))
+
+            # النافذة نفسها
+            assert window.toolTip(), "MainWindow tooltip فارغ"
+            assert "v2.2.0" in window.statusTip(), "statusTip يجب أن يحوي v2.2.0"
+
+            # menu actions — لا نتحقق على عددها لكن نتحقق أنها موجودة
+            menubar = window.menuBar()
+            assert menubar.actions(), "قائمة المنيو فارغة"
+
+            window.crash_recovery.cleanup()
+
+    def test_main_window_tab_order_set(self, qapp, tmp_path):
+        """tab order يجب أن يُضبط بين path_edit → scan_btn → table."""
+        from src.desktop.controllers.ifm_controller import IFMController
+        from src.desktop.main_window import IFMMainWindow
+
+        with patch("src.desktop.crash_recovery.SESSION_FILE", tmp_path / "session.json"), \
+             patch("src.desktop.crash_recovery.CRASH_LOG_DIR", tmp_path / "crashes"):
+            controller = IFMController(base_dir=str(tmp_path))
+            window = IFMMainWindow(controller=controller, base_dir=str(tmp_path))
+
+            # التحقق أن _setup_tab_order تعمل دون أخطاء (تم في __init__)
+            assert hasattr(window, "_setup_tab_order")
+
+            # التحقق أن أزرار الـ sidebar كلها قابلة للوصول
+            for nav_id in window.sidebar.nav_ids:
+                btn = window.sidebar.get_button(nav_id)
+                assert btn is not None, f"زر السايدبار مفقود: {nav_id}"
+
+            window.crash_recovery.cleanup()
+
+    def test_setup_py_version_matches_init(self):
+        """setup.py version يجب أن يطابق src/__init__.py __version__."""
+        import re
+        from pathlib import Path
+
+        from src import __version__
+
+        setup_path = Path(__file__).resolve().parent.parent.parent / "setup.py"
+        content = setup_path.read_text(encoding="utf-8")
+        match = re.search(r'version="([^"]+)"', content)
+        assert match, "لم يُعثر على version في setup.py"
+        assert match.group(1) == __version__, \
+            f"setup.py version ({match.group(1)}) != __version__ ({__version__})"

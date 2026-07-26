@@ -70,14 +70,20 @@ class InventoryPanel(QWidget):
 
         self.path_edit = QLineEdit()
         self.path_edit.setPlaceholderText("مسار المجلد...")
+        self.path_edit.setToolTip("مسار المجلد المراد فحصه (مثل /home/user/Downloads)")
+        self.path_edit.setStatusTip("أدخل مسار المجلد ثم اضغط فحص")
         toolbar.addWidget(self.path_edit, stretch=1)
 
         browse_btn = QPushButton("تصفّح...")
+        browse_btn.setToolTip("اختيار مجلد عبر حوار الملفات")
+        browse_btn.setStatusTip("افتح حوار اختيار المجلد")
         browse_btn.clicked.connect(self._on_browse)
         toolbar.addWidget(browse_btn)
 
         self.scan_btn = QPushButton("فحص")
         self.scan_btn.setProperty("primary", True)
+        self.scan_btn.setToolTip("فحص المجلد المُدخل وبناء قائمة الملفات (F5)")
+        self.scan_btn.setStatusTip("ابدأ فحص المجلد")
         self.scan_btn.clicked.connect(self._on_scan)
         toolbar.addWidget(self.scan_btn)
 
@@ -93,6 +99,8 @@ class InventoryPanel(QWidget):
         self.table.setHorizontalHeaderLabels([
             "اسم الملف", "المجلد", "الحجم", "النوع", "التصنيف", "الوسوم", "SHA-256",
         ])
+        self.table.setToolTip("قائمة الملفات المفهرسة — اختر صفًا لمعاينة محتواه")
+        self.table.setStatusTip("انقر على صف لمعاينة الملف")
         self.table.setAlternatingRowColors(True)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
