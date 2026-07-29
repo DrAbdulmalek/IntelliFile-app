@@ -18,10 +18,7 @@ PR-08 من development-roadmap-v1.0 (IFM Phase C)
 from __future__ import annotations
 
 import json
-import os
-import tempfile
 import time
-from pathlib import Path
 
 import pytest
 
@@ -62,8 +59,9 @@ class TestTheme:
         assert qapp.styleSheet()
 
     def test_apply_rtl(self, qapp):
-        from src.desktop.theme import apply_rtl
         from PySide6.QtCore import Qt
+
+        from src.desktop.theme import apply_rtl
         apply_rtl(qapp)
         assert qapp.layoutDirection() == Qt.RightToLeft
 
@@ -83,7 +81,7 @@ class TestTheme:
         assert qapp.styleSheet()
 
     def test_palettes_have_required_keys(self):
-        from src.desktop.theme import LIGHT_PALETTE, DARK_PALETTE
+        from src.desktop.theme import DARK_PALETTE, LIGHT_PALETTE
         required = {"bg", "surface", "text", "border", "accent", "sidebar_bg"}
         for p in (LIGHT_PALETTE, DARK_PALETTE):
             for key in required:
@@ -109,7 +107,8 @@ class TestSidebar:
         assert "undo_log" in s.nav_ids
         assert "watcher" in s.nav_ids
         assert "settings" in s.nav_ids
-        assert len(s.nav_ids) == 7
+        assert "plugins" in s.nav_ids  # Phase E
+        assert len(s.nav_ids) == 8  # 7 original + plugins (Phase E)
 
     def test_default_active_is_inventory(self, qapp):
         from src.desktop.widgets.sidebar import Sidebar
@@ -335,7 +334,10 @@ class TestIFMController:
         assert len(c.ruleset.rules) > 0
 
     def test_state_snapshot_emitted(self, qapp, tmp_path):
-        from src.desktop.controllers.ifm_controller import IFMController, IFMStateSnapshot
+        from src.desktop.controllers.ifm_controller import (
+            IFMController,
+            IFMStateSnapshot,
+        )
         c = IFMController(base_dir=tmp_path, ruleset_path=None)
         snapshots = []
         c.state_changed.connect(lambda s: snapshots.append(s))
@@ -355,8 +357,8 @@ class TestInventoryPanel:
         assert panel.table.rowCount() == 0
 
     def test_set_records_populates_table(self, qapp, tmp_with_files):
-        from src.desktop.panels.inventory_panel import InventoryPanel
         from src.core.file_inventory import FileInventory
+        from src.desktop.panels.inventory_panel import InventoryPanel
         panel = InventoryPanel()
         inv = FileInventory()
         records = list(inv.scan(str(tmp_with_files), recursive=True))
@@ -420,8 +422,8 @@ class TestRuleEnginePanel:
         assert "5" in panel.ruleset_label.text()
 
     def test_set_plan(self, qapp):
+        from src.core.rule_schemas import Action, DryRunPlan, PlannedAction
         from src.desktop.panels.rule_engine_panel import RuleEnginePanel
-        from src.core.rule_schemas import DryRunPlan, PlannedAction, Action
         panel = RuleEnginePanel()
         plan = DryRunPlan(ruleset_name="test", base_dir="/tmp")
         plan.planned_actions.append(PlannedAction(
@@ -435,8 +437,8 @@ class TestRuleEnginePanel:
         assert panel.execute_btn.isEnabled()
 
     def test_set_plan_empty_disables_execute(self, qapp):
-        from src.desktop.panels.rule_engine_panel import RuleEnginePanel
         from src.core.rule_schemas import DryRunPlan
+        from src.desktop.panels.rule_engine_panel import RuleEnginePanel
         panel = RuleEnginePanel()
         plan = DryRunPlan(ruleset_name="empty", base_dir="/tmp")
         panel.set_plan(plan)
@@ -460,8 +462,8 @@ class TestRuleEnginePanel:
         assert panel.dry_run_btn.isEnabled()
 
     def test_set_execute_results(self, qapp):
+        from src.core.rule_schemas import Action, DryRunPlan, PlannedAction, UndoEntry
         from src.desktop.panels.rule_engine_panel import RuleEnginePanel
-        from src.core.rule_schemas import DryRunPlan, PlannedAction, Action, UndoEntry
         panel = RuleEnginePanel()
         plan = DryRunPlan(ruleset_name="test", base_dir="/tmp")
         plan.planned_actions.append(PlannedAction(
@@ -488,8 +490,8 @@ class TestActionLogPanel:
         assert panel.table.columnCount() == 7
 
     def test_set_entries(self, qapp):
-        from src.desktop.panels.action_log_panel import ActionLogPanel
         from src.core.action_log import ActionLogEntry
+        from src.desktop.panels.action_log_panel import ActionLogPanel
         panel = ActionLogPanel()
         entries = [
             ActionLogEntry(timestamp="2026-01-01 10:00:00", action_type="move",
@@ -502,8 +504,8 @@ class TestActionLogPanel:
         assert "2" in panel.summary_label.text()
 
     def test_filter_success_only(self, qapp):
-        from src.desktop.panels.action_log_panel import ActionLogPanel
         from src.core.action_log import ActionLogEntry
+        from src.desktop.panels.action_log_panel import ActionLogPanel
         panel = ActionLogPanel()
         entries = [
             ActionLogEntry(action_type="move", success=True),
@@ -514,8 +516,8 @@ class TestActionLogPanel:
         assert panel.table.rowCount() == 1
 
     def test_filter_failure_only(self, qapp):
-        from src.desktop.panels.action_log_panel import ActionLogPanel
         from src.core.action_log import ActionLogEntry
+        from src.desktop.panels.action_log_panel import ActionLogPanel
         panel = ActionLogPanel()
         entries = [
             ActionLogEntry(action_type="move", success=True),
@@ -526,8 +528,12 @@ class TestActionLogPanel:
         assert panel.table.rowCount() == 1
 
     def test_filter_by_source(self, qapp):
+        from src.core.action_log import (
+            SOURCE_RULE_ENGINE,
+            SOURCE_WATCHER,
+            ActionLogEntry,
+        )
         from src.desktop.panels.action_log_panel import ActionLogPanel
-        from src.core.action_log import ActionLogEntry, SOURCE_WATCHER, SOURCE_RULE_ENGINE
         panel = ActionLogPanel()
         entries = [
             ActionLogEntry(action_type="move", success=True, source=SOURCE_RULE_ENGINE),
@@ -538,8 +544,8 @@ class TestActionLogPanel:
         assert panel.table.rowCount() == 1
 
     def test_add_entry(self, qapp):
-        from src.desktop.panels.action_log_panel import ActionLogPanel
         from src.core.action_log import ActionLogEntry
+        from src.desktop.panels.action_log_panel import ActionLogPanel
         panel = ActionLogPanel()
         panel.add_entry(ActionLogEntry(action_type="move", success=True))
         assert panel.table.rowCount() == 1
@@ -548,8 +554,8 @@ class TestActionLogPanel:
         assert panel.table.rowCount() == 2
 
     def test_clear_view(self, qapp):
-        from src.desktop.panels.action_log_panel import ActionLogPanel
         from src.core.action_log import ActionLogEntry
+        from src.desktop.panels.action_log_panel import ActionLogPanel
         panel = ActionLogPanel()
         panel.add_entry(ActionLogEntry(action_type="move", success=True))
         panel.clear_view()
@@ -568,8 +574,8 @@ class TestUndoLogPanel:
         assert not panel.undo_all_btn.isEnabled()
 
     def test_set_entries_enables_buttons(self, qapp):
-        from src.desktop.panels.undo_log_panel import UndoLogPanel
         from src.core.rule_schemas import UndoEntry
+        from src.desktop.panels.undo_log_panel import UndoLogPanel
         panel = UndoLogPanel()
         entries = [UndoEntry(action_type="move", file_path="/tmp/a", rule_name="R1")]
         panel.set_entries(entries)
@@ -634,8 +640,8 @@ class TestWatcherPanel:
         assert panel.events_table.rowCount() == 200
 
     def test_set_history(self, qapp):
-        from src.desktop.panels.watcher_panel import WatcherPanel
         from src.core.watcher import BatchResult
+        from src.desktop.panels.watcher_panel import WatcherPanel
         panel = WatcherPanel()
         batches = [
             BatchResult(batch_id="b1", started_at="2026-01-01 10:00:00",
@@ -657,16 +663,16 @@ class TestWatcherPanel:
 
 class TestIFMMainWindow:
     def test_creation_with_default_controller(self, qapp, tmp_path):
-        from src.desktop import IFMMainWindow, IFMController, init_app_theme
+        from src.desktop import IFMController, IFMMainWindow, init_app_theme
         init_app_theme(qapp, mode="dark", rtl=True)
         c = IFMController(base_dir=tmp_path, ruleset_path=None)
         w = IFMMainWindow(controller=c, base_dir=str(tmp_path))
         assert w.windowTitle().startswith("IntelliFile")
-        assert w.stack.count() == 7
-        assert len(w.sidebar.nav_ids) == 7
+        assert w.stack.count() == 8  # 7 original + plugins (Phase E)
+        assert len(w.sidebar.nav_ids) == 8
 
     def test_navigation_switches_panels(self, qapp, tmp_path):
-        from src.desktop import IFMMainWindow, IFMController, init_app_theme
+        from src.desktop import IFMController, IFMMainWindow, init_app_theme
         init_app_theme(qapp, mode="dark", rtl=True)
         c = IFMController(base_dir=tmp_path, ruleset_path=None)
         w = IFMMainWindow(controller=c, base_dir=str(tmp_path))
@@ -680,7 +686,7 @@ class TestIFMMainWindow:
         assert w.stack.currentIndex() == 3
 
     def test_full_workflow_e2e(self, qapp, tmp_with_files, default_ruleset_path):
-        from src.desktop import IFMMainWindow, IFMController, init_app_theme
+        from src.desktop import IFMController, IFMMainWindow, init_app_theme
         init_app_theme(qapp, mode="dark", rtl=True)
         c = IFMController(base_dir=tmp_with_files, ruleset_path=default_ruleset_path)
         w = IFMMainWindow(controller=c, base_dir=str(tmp_with_files))
@@ -723,7 +729,7 @@ class TestIFMMainWindow:
         assert html_path.exists()
 
     def test_status_bar_updates_on_scan(self, qapp, tmp_with_files):
-        from src.desktop import IFMMainWindow, IFMController, init_app_theme
+        from src.desktop import IFMController, IFMMainWindow, init_app_theme
         init_app_theme(qapp, mode="dark", rtl=True)
         c = IFMController(base_dir=tmp_with_files, ruleset_path=None)
         w = IFMMainWindow(controller=c, base_dir=str(tmp_with_files))
@@ -735,7 +741,7 @@ class TestIFMMainWindow:
         assert "ملف" in w.status_bar.stats_label.text() or c.records
 
     def test_menu_actions_exist(self, qapp, tmp_path):
-        from src.desktop import IFMMainWindow, IFMController, init_app_theme
+        from src.desktop import IFMController, IFMMainWindow, init_app_theme
         init_app_theme(qapp, mode="dark", rtl=True)
         c = IFMController(base_dir=tmp_path, ruleset_path=None)
         w = IFMMainWindow(controller=c, base_dir=str(tmp_path))
@@ -746,7 +752,7 @@ class TestIFMMainWindow:
         assert "مساعدة" in menu_texts
 
     def test_theme_toggle(self, qapp, tmp_path):
-        from src.desktop import IFMMainWindow, IFMController, init_app_theme
+        from src.desktop import IFMController, IFMMainWindow, init_app_theme
         init_app_theme(qapp, mode="dark", rtl=True)
         c = IFMController(base_dir=tmp_path, ruleset_path=None)
         w = IFMMainWindow(controller=c, base_dir=str(tmp_path))
@@ -757,8 +763,9 @@ class TestIFMMainWindow:
         assert qapp.property("ifm_theme") == "dark"
 
     def test_close_event_cleans_up(self, qapp, tmp_path):
-        from src.desktop import IFMMainWindow, IFMController, init_app_theme
         from PySide6.QtGui import QCloseEvent
+
+        from src.desktop import IFMController, IFMMainWindow, init_app_theme
         init_app_theme(qapp, mode="dark", rtl=True)
         c = IFMController(base_dir=tmp_path, ruleset_path=None)
         w = IFMMainWindow(controller=c, base_dir=str(tmp_path))
@@ -768,7 +775,7 @@ class TestIFMMainWindow:
         # يجب ألا يرمي استثناء
 
     def test_ruleset_loaded_on_init(self, qapp, tmp_path, default_ruleset_path):
-        from src.desktop import IFMMainWindow, IFMController, init_app_theme
+        from src.desktop import IFMController, IFMMainWindow, init_app_theme
         init_app_theme(qapp, mode="dark", rtl=True)
         c = IFMController(base_dir=tmp_path, ruleset_path=default_ruleset_path)
         w = IFMMainWindow(controller=c, base_dir=str(tmp_path))

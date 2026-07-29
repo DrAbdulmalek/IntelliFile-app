@@ -38,6 +38,7 @@ from .crash_recovery import CrashRecovery
 from .keyboard_shortcuts import ShortcutManager
 from .panels.action_log_panel import ActionLogPanel
 from .panels.inventory_panel import InventoryPanel
+from .panels.plugin_panel import PluginPanel
 from .panels.preview_panel import FilePreviewPanel
 from .panels.rule_engine_panel import RuleEnginePanel
 from .panels.settings_panel import SettingsPanel
@@ -119,9 +120,11 @@ class IFMMainWindow(QMainWindow):
         self.undo_log_panel = UndoLogPanel()
         self.watcher_panel = WatcherPanel()
         self.settings_panel = SettingsPanel(settings=self.controller.settings)
+        self.plugin_panel = PluginPanel()
 
         # ترتيب اللوحات يطابق ترتيب NAV_ITEMS في Sidebar
-        # inventory=0, preview=1, rules=2, action_log=3, undo_log=4, watcher=5, settings=6
+        # inventory=0, preview=1, rules=2, action_log=3, undo_log=4,
+        # watcher=5, settings=6, plugins=7
         self.stack.addWidget(self.inventory_panel)
         self.stack.addWidget(self.preview_panel)
         self.stack.addWidget(self.rule_engine_panel)
@@ -129,6 +132,7 @@ class IFMMainWindow(QMainWindow):
         self.stack.addWidget(self.undo_log_panel)
         self.stack.addWidget(self.watcher_panel)
         self.stack.addWidget(self.settings_panel)
+        self.stack.addWidget(self.plugin_panel)
 
         layout.addWidget(self.stack, stretch=1)
 
@@ -212,6 +216,9 @@ class IFMMainWindow(QMainWindow):
         self.settings_panel.theme_change_requested.connect(self._on_theme_change_requested)
         self.settings_panel.rtl_change_requested.connect(self._on_rtl_change_requested)
 
+        # Plugin panel (Phase E)
+        self.plugin_panel.reload_requested.connect(self._on_plugins_reload)
+
         # Controller signals → UI updates
         self.controller.scan_started.connect(self._on_scan_started)
         self.controller.scan_finished.connect(self._on_scan_finished)
@@ -258,6 +265,7 @@ class IFMMainWindow(QMainWindow):
             "undo_log": 4,
             "watcher": 5,
             "settings": 6,
+            "plugins": 7,
         }
         idx = idx_map.get(nav_id, 0)
         self.stack.setCurrentIndex(idx)
@@ -513,6 +521,31 @@ class IFMMainWindow(QMainWindow):
         if app:
             from PySide6.QtCore import Qt
             app.setLayoutDirection(Qt.RightToLeft if rtl else Qt.LeftToRight)
+
+    def _on_plugins_reload(self) -> None:
+        """عند طلب إعادة تحميل المكونات من PluginPanel (Phase E).
+
+        ينشئ PluginManager جديدًا (إن لم يوجد)، يستدعي load_all()،
+        ثم يحدّث الجدول. الإخفاقات تُعرض للمستخدم دون كسر التطبيق.
+        """
+        try:
+            from src.plugins import PluginManager
+
+            if not hasattr(self, "_plugin_manager") or self._plugin_manager is None:
+                self._plugin_manager = PluginManager()
+                self.plugin_panel.set_plugin_manager(self._plugin_manager)
+
+            count = self._plugin_manager.load_all()
+            self.plugin_panel.refresh_from_manager()
+            self.status_bar.set_message(
+                f"تم تحميل {count} مكوّن إضافي"
+            )
+        except Exception as e:
+            QMessageBox.warning(
+                self, "فشل إعادة تحميل المكونات",
+                f"تعذّر إعادة تحميل المكونات الإضافية:\n\n{e}",
+            )
+            self.status_bar.set_message("فشل تحميل المكونات الإضافية")
 
     def _apply_initial_settings(self, settings: IFMSettings) -> None:
         """يطبّق الإعدادات المحفوظة عند بدء التشغيل"""

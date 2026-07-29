@@ -20,6 +20,7 @@ from .keyboard_shortcuts import SHORTCUTS, ShortcutManager
 from .main_window import IFMMainWindow
 from .panels.action_log_panel import ActionLogPanel
 from .panels.inventory_panel import InventoryPanel
+from .panels.plugin_panel import PluginPanel
 from .panels.preview_panel import FilePreviewPanel
 from .panels.rule_engine_panel import RuleEnginePanel
 from .panels.settings_panel import SettingsPanel
@@ -67,6 +68,7 @@ __all__ = [
     "ActionLogPanel",
     "FilePreviewPanel",
     "InventoryPanel",
+    "PluginPanel",
     "RuleEnginePanel",
     "SettingsPanel",
     "UndoLogPanel",
