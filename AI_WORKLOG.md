@@ -250,6 +250,170 @@ Track all AI agent activity across repositories to prevent conflicts, ensure acc
 
 ---
 
+### Phase C — PR-09: Progress + Previews + Settings (Desktop UX) — 2026-07-25
+
+**Branch:** `feat/ifm-desktop-progress-previews-settings` (off `main` after PR-08 merge)
+**Goal:** استكمال UX Foundation بإضافة شريط تقدّم قابل للإلغاء، معاينة محتوى الملفات (نص + صورة)، ولوحة إعدادات شاملة.
+**Scope boundary:** لا AI، لا medical، لا ميزات خارج UX. فقط إكمال طبقة العرض.
+
+**Files added (src/desktop/):**
+- `settings.py` (~190 LOC) — `IFMSettings` dataclass with 11 fields: watch_folders_enabled, default_dry_run, confirm_destructive, semantic_search_enabled, dark_mode, rtl, auto_organize, thumbnail_size, max_text_preview_bytes, save_undo_log_on_exit, save_action_log_on_exit. JSON roundtrip + load/save with safe fallback for missing/corrupt files.
+- `panels/preview_panel.py` (~315 LOC) — `FilePreviewPanel`: معاينة نص (txt/md/py/json/yaml/...) لـ ~30 امتدادًا، مصغّرة صور (jpg/png/gif/bmp/webp/svg/...) لـ 10 امتدادات، معلومات ملف (الاسم/المسار/الحجم/النوع/آخر تعديل)، رسائل "غير متاح" و"لا يوجد ملف محدّد"، قص ذكي للملفات الكبيرة.
+- `panels/settings_panel.py` (~290 LOC) — `SettingsPanel`: 9 checkboxes + 2 spin boxes + 3 buttons (save/reset/apply). إشارات settings_changed + theme_change_requested + rtl_change_requested. تأكيد قبل reset. QMessageBox مكبوتة في الاختبارات.
+- `widgets/progress_manager.py` (~260 LOC) — `ProgressManager`: متعدد العمليات (op_id → ProgressToken)، QProgressBar + QLabel + زر إلغاء، يبدأ/يحدّث/ينهي تلقائيًا، يدعم الإلغاء، يخفي نفسه عند عدم وجود عمليات نشطة. اندماج كامل مع IFMController.progress + operation_cancelled.
+- `widgets/error_reporter.py` (~210 LOC) — `ErrorReporter`: عداد أخطاء + تحذيرات + سجل آخر 50 رسالة + إشارة errors_changed + dialog اختياري. مستوى severity (error/warning) + context tag.
+- `widgets/recent_actions.py` (~170 LOC) — `RecentActionsWidget`: عرض آخر 20 إجراءً (timestamp + summary + status)، تحديث فوري عند log، إفراغ واضح، حالة فارغة مرئية.
+
+**Files modified (src/desktop/):**
+- `controllers/ifm_controller.py` — Added `progress`/`operation_cancelled`/`settings_changed`/`file_previewed` signals + `ProgressToken` class + `_active_tokens` dict + `_start_operation`/`_finish_operation`/`cancel_operation`/`is_operation_active` + `apply_settings` + `scan_directory`/`dry_run`/`execute` emit progress + honour cancellation tokens.
+- `main_window.py` — Wired ProgressManager + ErrorReporter + RecentActionsWidget into IFMStatusBar. Added `_on_progress`, `_on_operation_cancelled`, `_on_progress_cancelled`, `_on_cancel_operation`, `_on_inventory_selection` (auto-preview on row select), `_on_file_previewed`, `_on_settings_changed`, `_on_theme_change_requested`, `_on_rtl_change_requested`, `_apply_initial_settings`. Added "إجراءات" menu with "إلغاء العملية الحالية" (Esc shortcut). Auto-organize scheduling via QTimer if `settings.auto_organize` enabled.
+- `panels/inventory_panel.py` — Added `selection_changed(str)` signal + `Qt.UserRole` data on name column to carry full file_path for preview.
+- `widgets/status_bar.py` — Now hosts `ProgressManager` + `ErrorReporter` + `RecentActionsWidget` alongside the existing WatcherIndicator + StatsLabel.
+- `widgets/sidebar.py` — Added "preview" + "settings" navigation entries.
+- `app.py` — Loads IFMSettings at startup; passes settings to controller.
+
+**Files added (tests):**
+- `tests/integration/test_desktop_pr09.py` (~770 LOC, 54 tests in 8 classes): TestIFMSettings(7), TestProgressManager(6), TestControllerCancellation(4), TestErrorReporter(6), TestRecentActionsWidget(4), TestFilePreviewPanel(9), TestSettingsPanel(6), TestMainWindowPR09(6), TestPR09EndToEnd(2), TestExportsPR09(1).
+
+**Bug fixes during integration (no new features):**
+1. `QTextCursor.Start` accessed via instance — PySide6 requires class-level enum access (`QTextCursor.Start` not `cursor.Start`). The instance access raised `AttributeError`, which was caught by `_preview_text`'s try/except and triggered `_show_error`, hiding the text preview. Fixed by importing `QTextCursor` from `PySide6.QtGui` and using `QTextCursor.Start`.
+2. Test stability fixes for Qt headless:
+   - Used `not isHidden()` instead of `isVisible()` for testing internal widget visibility state (the latter requires the full parent chain to be visible, which is not the case in unit tests where panels aren't shown or are in a non-current tab of a stacked widget).
+   - Used `setCurrentCell(0, 0, QItemSelectionModel.SelectCurrent | QItemSelectionModel.Rows)` instead of `selectRow(0)` because `selectRow` doesn't reliably emit `itemSelectionChanged` in headless Qt when there's no prior selection.
+   - Kept references to `menubar.actions()` list to avoid PySide6 wrapper GC deleting the QMenu C++ object mid-test in `test_cancel_menu_action`.
+   - Mocked `QMessageBox.warning`/`information`/`critical` in `test_error_reporter_collects_scan_failures` because the controller's `scan_directory(nonexistent)` emits `error` signal, which `_on_error` routes to a modal `QMessageBox.warning` — this would block the test in headless mode.
+
+**Test results:** 658/658 passing (was 604, +54 new desktop PR-09 tests, 0 regressions)
+
+**E2E verified:** scan (with progress bar) → select file (auto-preview text/image) → open settings → toggle dark mode + RTL → save → controller applies settings → all green.
+
+**Watch-out:** Same as PR-08 — desktop tests need `LD_LIBRARY_PATH=/home/z/.local/lib/qtfix` because `libEGL.so.1` is not installed system-wide. Auto-skip on missing PySide6.
+
+**Next:** PR-10 — Desktop polish + release checklist (final UX polish, keyboard shortcuts, accessibility, packaging, release-ready v1.0)
+
+---
+
+### Phase C — PR-10: Desktop Polish + Release Checklist + v2.2.0 — 2026-07-25
+
+**Branch:** `feat/ifm-desktop-polish-release` (off PR-09 HEAD `bc39e84`, not waiting for PR-09 merge per user instruction)
+**Goal:** استكمال Phase C بإضافة اختصارات لوحة مفاتيح كاملة، استرداد الأعطال مع حفظ الجلسة، مواصفات PyInstaller للتعبئة، قائمة تحقق إصدار v2.2.0، ورفع الإصدار.
+**Scope boundary:** لا AI، لا medical، لا ميزات خارج UX + packaging + release docs. فقط إكمال طبقة العرض + التحضير للإصدار.
+
+**Files added:**
+- `src/desktop/keyboard_shortcuts.py` (~110 LOC) — `ShortcutManager` مع 8 اختصارات عامة:
+  - `Ctrl+R` (refresh) — تحديث العرض الحالي
+  - `F5` (scan) — فحص المجلد الحالي
+  - `Ctrl+Z` (undo) — التراجع عن آخر إجراء
+  - `Ctrl+F` (search) — تركيز البحث في اللوحة الحالية
+  - `Ctrl+,` (settings) — فتح لوحة الإعدادات
+  - `Ctrl+P` (preview) — فتح لوحة المعاينة
+  - `Ctrl+T` (toggle theme) — تبديل السمة داكن/فاتح
+  - `Esc` (cancel) — إلغاء العملية الجارية
+  - إشارة مستقلة لكل اختصار، `set_shortcut_enabled(seq, bool)` للتفعيل/التعطيل
+- `src/desktop/crash_recovery.py` (~190 LOC) — `CrashRecovery` مع:
+  - حفظ الجلسة JSON عند الخروج (`~/.intellifile/session.json`) — آخر مجلد + لوحة + سمة
+  - استعادة الجلسة عند بدء التشغيل
+  - `sys.excepthook` لكتابة سجلات الأعطال إلى `~/.intellifile/crashes/`
+  - تدوير سجلات الأعطال (يبقي آخر 10)
+  - معالج SIGINT/SIGTERM للإنهاء الناعم
+  - إشارة `crash_detected(str)` لإظهار حوار استرداد
+  - `cleanup()` لفصل المعالجات (للاختبارات)
+- `packaging/desktop.spec` (~95 LOC) — مواصفات PyInstaller Linux-first:
+  - `intellifile-desktop` binary + `IntelliFile-Desktop/` folder
+  - excludes: tkinter, matplotlib, IPython, pytest
+  - hiddenimports: كل desktop modules + core modules + PySide6 plugins
+  - datas: theme.py + default_rules.yaml
+  - console=False (windowed mode)
+- `docs/RELEASE_CHECKLIST_v2.2.0.md` (~140 LOC) — قائمة تحقق إصدار كاملة:
+  - Pre-release verification (tests, lint, smoke tests, keyboard shortcuts, crash recovery)
+  - Version bump (src/__init__.py, setup.py, pyproject.toml, CHANGELOG, AI_WORKLOG)
+  - Packaging (Linux PyInstaller + AppImage, Windows, macOS)
+  - Documentation (CHANGELOG, README, screenshots)
+  - Git & release (commit, push, PR, tag v2.2.0, GitHub Release)
+  - Post-release verification
+  - Risk acceptance
+- `CHANGELOG.md` (~85 LOC, جديد) — كل التغييرات من v2.0.0 إلى v2.2.0 في تنسيق Keep a Changelog.
+
+**Files added (tests):**
+- `tests/integration/test_desktop_pr10.py` (~250 LOC, 14 اختبار في 5 فئات):
+  - TestKeyboardShortcuts(4): creation, signals emitted, enable/disable, invalid seq raises
+  - TestCrashRecovery(4): init, session roundtrip, crash log rotation, empty state
+  - TestVersion(2): semver format, app metadata
+  - TestCLI(2): --version flag exits 0, output contains version
+  - TestMainWindowPR10(2): shortcut manager wired in, closeEvent saves session
+
+**Files modified:**
+- `src/__init__.py` — `__version__` من `2.1.0` إلى `2.2.0` + إضافة `__app_name__` و `__app_description__`.
+- `src/desktop/app.py` — إضافة `--version` flag + استيراد `CrashRecovery` وإنشائه قبل controller + تمريره لـ `IFMMainWindow`.
+- `src/desktop/main_window.py`:
+  - استيراد `ShortcutManager` + `CrashRecovery`
+  - `__init__` يقبل `crash_recovery: CrashRecovery | None = None`
+  - إنشاء `self.shortcut_manager = ShortcutManager(self)` + `self._connect_shortcuts()`
+  - إنشاء/ربط `self.crash_recovery` + استدعاء `self._restore_session()`
+  - `_connect_shortcuts()` — ربط 8 اختصارات بـ slots المناسبة
+  - `_on_refresh()` (Ctrl+R), `_on_scan_shortcut()` (F5), `_on_search()` (Ctrl+F)
+  - `_restore_session()` — استعادة آخر مجلد + لوحة من الجلسة المحفوظة
+  - `_on_crash_detected()` — حوار استرداد عند وجود سجل عطل
+  - `closeEvent` محدّث — حفظ `last_directory` + `last_panel` + `last_theme` في الجلسة
+  - `_on_about` محدّث — يعرض `__version__` + قائمة اختصارات
+- `src/desktop/__init__.py` — إضافة `ShortcutManager` و `CrashRecovery` للتصديرات (تم بالفعل في ruff --fix).
+
+**Bug fixes during integration (no new features):**
+1. `QShortcut.setToolTip` لا وجود له في PySide6 — حُذف، استخدمنا `setWhatsThis` فقط.
+2. الاختبارات الأولى استخدمت `MagicMock()` كـ parent لـ `ShortcutManager`، لكن `QObject.__init__` يرفض غير QObject. حُلّ بتمرير `qapp` (QApplication الحقيقي) بدلاً من mock.
+3. `--version` flag يستدعي `parse_args` التي تُرجع `SystemExit(0)` — الاختبار يستخدم `pytest.raises(SystemExit)` للتحقق.
+4. تم استيراد `__version__` من `src` بدلاً من `src.desktop` لتجنب circular imports.
+5. `_on_about` يستورد `__version__` محليًا (lazy import) لتجنب circular imports في رأس الملف.
+
+**Test results:** 672/672 passing (was 658, +14 new PR-10 desktop tests, 0 regressions)
+- 150 desktop tests (PR-08: 82 + PR-09: 54 + PR-10: 14)
+- 522 non-desktop tests
+
+**E2E verified:** تشغيل التطبيق → فتح مجلد → Ctrl+R/F5 للفحص → Ctrl+F للبحث → Ctrl+T لتبديل السمة → Ctrl+Z للتراجع → Esc للإلغاء → إغلاق التطبيق → إعادة التشغيل → استرجاع آخر مجلد ولوحة تلقائيًا.
+
+**Watch-out:**
+- نفس PR-08/PR-09: اختبارات desktop تحتاج `LD_LIBRARY_PATH=/home/z/.local/lib/qtfix` + `QT_QPA_PLATFORM=offscreen`.
+- `pytest-qt` مثبّت لاختبارات `qtbot` (لا يُستخدم في PR-10 لكنه متاح للمستقبل).
+- `PyInstaller` غير مثبّت في بيئة الاختبار — `packaging/desktop.spec` تم التحقق من صحته نحويًا فقط (لا build فعلي).
+- 11 خطأ ruff متبقية في ملفات PR-10، كلها أنماط دفاعية قياسية (BLE001/S110/DTZ005) مطابقة لأسلوب PR-09 — لا أخطاء جديدة.
+
+**Gap-fill (PR-10 polish supplement):**
+- `src/desktop/widgets/sidebar.py`:
+  - `NAV_ITEMS` أصبحت 4-tuple `(id, label, icon, tooltip)` بدلًا من 3-tuple
+  - كل زر تنقّل يحمل `setToolTip` + `setStatusTip` + `setWhatsThis`
+  - إضافة `get_button(nav_id)` للوصول لزر معيّن (لاختبارات tab order)
+  - تحديث تسمية الإصدار من `"IFM v1.0 — PR-09"` إلى `"IFM v2.2.0 — PR-10"`
+- `src/desktop/panels/inventory_panel.py`:
+  - `path_edit` + `browse_btn` + `scan_btn` + `table` كلها تحمل `setToolTip` + `setStatusTip`
+- `src/desktop/panels/preview_panel.py`:
+  - `info_box` + 5 labels (`_name`, `_path`, `_size`, `_type`, `_modified`) تحمل `setToolTip`
+- `src/desktop/widgets/status_bar.py`:
+  - `watcher_indicator` + `stats_label` + `error_reporter` + `progress_manager` + `_message_label` تحمل `setToolTip`
+- `src/desktop/main_window.py`:
+  - إضافة `_setup_tooltips()` — tooltip على النافذة + 4 menu actions
+  - إضافة `_setup_tab_order()` — `setTabOrder` بين path_edit → scan_btn → table + بين أزرار الـ sidebar
+- `setup.py`: `version` من `2.0.0` إلى `2.2.0` (لمزامنة مع `src/__init__.py`)
+- `README.md`: إضافة قسم "Running the Desktop App" مع جدول اختصارات لوحة المفاتيح (10 اختصارات) + قائمة ميزات Phase C + ملاحظة libEGL
+- `tests/integration/test_desktop_pr10.py` — إضافة `TestTooltipsAndTabOrder` مع 7 اختبارات:
+  - sidebar buttons have tooltips
+  - sidebar version label updated to v2.2.0
+  - inventory panel tooltips
+  - status bar tooltips
+  - main window tooltips (window + statusTip + menubar)
+  - main window tab order set
+  - setup.py version matches src/__init__.py
+- `tests/integration/test_desktop_pr09.py`: تحديث `test_nav_items_includes_preview_and_settings` ليتوافق مع 4-tuple الجديد (استخدام `item[0]` بدلًا من unpacking)
+
+**Test results (after gap-fill):** 679/679 passing (was 672, +7 tooltip/tab-order tests, 1 PR-09 test fixed to handle 4-tuple)
+
+**Version bump:** `2.1.0` → `2.2.0` — Phase C مكتملة.
+
+**Tag:** `v2.2.0` — يُنشأ بعد دمج PR.
+
+**Next:** Phase A–C مكتملة — جاهز للإصدار v2.2.0.
+
+---
+
 ## 🚫 Conflict Prevention
 
 ### Active Session Tracking

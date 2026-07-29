@@ -9,8 +9,6 @@ PR-08 من development-roadmap-v1.0 (IFM Phase C)
 """
 from __future__ import annotations
 
-from typing import Optional
-
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -50,7 +48,7 @@ class InventoryPanel(QWidget):
     scan_requested = Signal(str)
     selection_changed = Signal(str)
 
-    def __init__(self, parent: Optional[QWidget] = None):
+    def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
 
         layout = QVBoxLayout(self)
@@ -72,14 +70,20 @@ class InventoryPanel(QWidget):
 
         self.path_edit = QLineEdit()
         self.path_edit.setPlaceholderText("مسار المجلد...")
+        self.path_edit.setToolTip("مسار المجلد المراد فحصه (مثل /home/user/Downloads)")
+        self.path_edit.setStatusTip("أدخل مسار المجلد ثم اضغط فحص")
         toolbar.addWidget(self.path_edit, stretch=1)
 
         browse_btn = QPushButton("تصفّح...")
+        browse_btn.setToolTip("اختيار مجلد عبر حوار الملفات")
+        browse_btn.setStatusTip("افتح حوار اختيار المجلد")
         browse_btn.clicked.connect(self._on_browse)
         toolbar.addWidget(browse_btn)
 
         self.scan_btn = QPushButton("فحص")
         self.scan_btn.setProperty("primary", True)
+        self.scan_btn.setToolTip("فحص المجلد المُدخل وبناء قائمة الملفات (F5)")
+        self.scan_btn.setStatusTip("ابدأ فحص المجلد")
         self.scan_btn.clicked.connect(self._on_scan)
         toolbar.addWidget(self.scan_btn)
 
@@ -95,6 +99,8 @@ class InventoryPanel(QWidget):
         self.table.setHorizontalHeaderLabels([
             "اسم الملف", "المجلد", "الحجم", "النوع", "التصنيف", "الوسوم", "SHA-256",
         ])
+        self.table.setToolTip("قائمة الملفات المفهرسة — اختر صفًا لمعاينة محتواه")
+        self.table.setStatusTip("انقر على صف لمعاينة الملف")
         self.table.setAlternatingRowColors(True)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
@@ -127,12 +133,19 @@ class InventoryPanel(QWidget):
         if not items:
             return
         row = items[0].row()
-        # نأخذ مسار الملف من عمود "المجلد" + عمود "اسم الملف"
+        # نأخذ المسار الكامل المخزّن في Qt.UserRole لعمود "اسم الملف"
         name_item = self.table.item(row, 0)
-        dir_item = self.table.item(row, 1)
-        if name_item and dir_item:
-            file_path = f"{dir_item.text()}/{name_item.text()}"
-            self.selection_changed.emit(file_path)
+        if name_item is None:
+            return
+        file_path = name_item.data(Qt.UserRole)
+        if file_path:
+            self.selection_changed.emit(str(file_path))
+        else:
+            # fallback: إعادة بناء من اسم الملف + المجلد
+            dir_item = self.table.item(row, 1)
+            if name_item and dir_item:
+                file_path = f"{dir_item.text()}/{name_item.text()}"
+                self.selection_changed.emit(file_path)
 
     # ─── Public API ────────────────────────────────────────────────────────
 
@@ -143,7 +156,10 @@ class InventoryPanel(QWidget):
             row = self.table.rowCount()
             self.table.insertRow(row)
             md = record.metadata
-            self.table.setItem(row, 0, QTableWidgetItem(md.file_name))
+            name_item = QTableWidgetItem(md.file_name)
+            # نخزّن المسار الكامل في Qt.UserRole لاستخدامه في المعاينة (PR-09)
+            name_item.setData(Qt.UserRole, md.file_path)
+            self.table.setItem(row, 0, name_item)
             self.table.setItem(row, 1, QTableWidgetItem(md.parent_dir))
             self.table.setItem(row, 2, QTableWidgetItem(_format_size(md.file_size)))
             self.table.setItem(row, 3, QTableWidgetItem(md.extension or ""))

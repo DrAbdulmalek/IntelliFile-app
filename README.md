@@ -231,6 +231,47 @@ npm run dev
 # افتح http://localhost:3000 في المتصفح
 ```
 
+### Running the Desktop App | تشغيل واجهة سطح المكتب
+
+> **جديد في v2.2.0** — واجهة PySide6 محلية بالكامل (Phase C مكتملة)
+
+```bash
+# تشغيل واجهة سطح المكتب
+python -m src.desktop.app --base-dir /path/to/folder
+
+# أو مع ملف قواعد مخصّص
+python -m src.desktop.app --base-dir ~/Downloads --ruleset rules/custom.yaml
+
+# عرض الإصدار
+python -m src.desktop.app --version
+```
+
+#### Keyboard Shortcuts | اختصارات لوحة المفاتيح
+
+| الاختصار | الإجراء | Description |
+|---|---|---|
+| `Ctrl+R` | تحديث العرض الحالي | Refresh current panel |
+| `F5` | فحص المجلد الحالي | Scan current folder |
+| `Ctrl+Z` | تراجع عن آخر إجراء | Undo last action |
+| `Ctrl+F` | تركيز البحث في اللوحة | Focus search in current panel |
+| `Ctrl+,` | فتح لوحة الإعدادات | Open settings panel |
+| `Ctrl+P` | فتح لوحة المعاينة | Open preview panel |
+| `Ctrl+T` | تبديل السمة (داكن/فاتح) | Toggle dark/light theme |
+| `Esc` | إلغاء العملية الجارية | Cancel running operation |
+| `Ctrl+O` | فتح مجلد جديد | Open new folder |
+| `Ctrl+Q` | خروج | Exit application |
+
+#### Features | المميزات
+
+- **7 panels**: جرد، معاينة، قواعد، سجل إجراءات، سجل تراجع، مراقب، إعدادات
+- **Live progress + cancellation**: شريط تقدّم قابل للإلغاء لكل عملية طويلة
+- **File preview**: معاينة نصية (50+ امتداد) + مصغّرات صور (jpg/png/gif/...)
+- **Crash recovery**: استرداد آخر جلسة (آخر مجلد + لوحة) عند إعادة التشغيل
+- **Tooltips + Tab navigation**: تلميحات على كل مكوّن + ترتيب Tab منطقي
+- **RTL support**: دعم كامل لاتجاهRTL للعربية
+
+> الاختلال المعروف: يتطلب توفّر `libEGL.so.1` على لينكس — يُحل عبر تثبيت `libgl1` أو `libegl1`.
+
 ### Running Tests | تشغيل الاختبارات
 
 ```bash

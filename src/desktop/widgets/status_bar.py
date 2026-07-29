@@ -1,14 +1,21 @@
-"""IFMStatusBar — شريط حالة مخصص مع مؤشر المراقب والإحصائيات
+"""IFMStatusBar — شريط حالة مخصص مع مؤشر المراقب والإحصائيات + شريط التقدّم + الأخطاء
+
+يعرض:
+  - رسالة الحالة العامة (يمين)
+  - عدد السجلات + الإجراءات + سجل التراجع
+  - مؤشر المراقب LED
+  - ProgressManager (شريط تقدّم قابل للإلغاء) — PR-09
+  - ErrorReporter (عدّاد الأخطاء) — PR-09
 
 PR-08 من development-roadmap-v1.0 (IFM Phase C)
+PR-09 من development-roadmap-v1.0 (progress + error reporting)
 """
 from __future__ import annotations
 
-from typing import Optional
-
-from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QLabel, QStatusBar
 
+from .error_reporter import ErrorReporter
+from .progress_manager import ProgressManager
 from .watcher_indicator import WatcherIndicator
 
 
@@ -19,6 +26,8 @@ class IFMStatusBar(QStatusBar):
       - رسالة الحالة العامة (يمين)
       - عدد السجلات + الإجراءات + سجل التراجع (يسار)
       - مؤشر المراقب LED
+      - شريط تقدّم قابل للإلغاء (ProgressManager)
+      - عدّاد أخطاء (ErrorReporter)
     """
 
     def __init__(self, parent=None):
@@ -27,15 +36,28 @@ class IFMStatusBar(QStatusBar):
 
         # مؤشر المراقب
         self.watcher_indicator = WatcherIndicator(self)
+        self.watcher_indicator.setToolTip("حالة مراقب المجلد (يعمل/متوقف/خطأ)")
         self.addPermanentWidget(self.watcher_indicator)
 
         # تسمية الإحصائيات
         self.stats_label = QLabel("0 ملف | 0 إجراء | 0 تراجع")
         self.stats_label.setObjectName("StatsLabel")
+        self.stats_label.setToolTip("عدد الملفات المفهرسة + الإجراءات المنفّذة + عمليات التراجع")
         self.addPermanentWidget(self.stats_label)
+
+        # عدّاد الأخطاء (PR-09)
+        self.error_reporter = ErrorReporter(self)
+        self.error_reporter.setToolTip("عدّاد الأخطاء والتحذيرات — انقر للتفاصيل")
+        self.addPermanentWidget(self.error_reporter)
+
+        # شريط التقدّم القابل للإلغاء (PR-09)
+        self.progress_manager = ProgressManager(self)
+        self.progress_manager.setToolTip("شريط التقدّم للعملية الجارية — انقر إلغاء للإيقاف (Esc)")
+        self.addPermanentWidget(self.progress_manager)
 
         # رسالة عامة
         self._message_label = QLabel("جاهز")
+        self._message_label.setToolTip("رسالة الحالة العامة")
         self.addWidget(self._message_label)
 
     def set_stats(self, files: int, actions: int, undo: int) -> None:

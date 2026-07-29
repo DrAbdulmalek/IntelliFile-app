@@ -103,11 +103,13 @@ class TestSidebar:
         from src.desktop.widgets.sidebar import Sidebar
         s = Sidebar()
         assert "inventory" in s.nav_ids
+        assert "preview" in s.nav_ids
         assert "rules" in s.nav_ids
         assert "action_log" in s.nav_ids
         assert "undo_log" in s.nav_ids
         assert "watcher" in s.nav_ids
-        assert len(s.nav_ids) == 5
+        assert "settings" in s.nav_ids
+        assert len(s.nav_ids) == 7
 
     def test_default_active_is_inventory(self, qapp):
         from src.desktop.widgets.sidebar import Sidebar
@@ -660,22 +662,22 @@ class TestIFMMainWindow:
         c = IFMController(base_dir=tmp_path, ruleset_path=None)
         w = IFMMainWindow(controller=c, base_dir=str(tmp_path))
         assert w.windowTitle().startswith("IntelliFile")
-        assert w.stack.count() == 5
-        assert len(w.sidebar.nav_ids) == 5
+        assert w.stack.count() == 7
+        assert len(w.sidebar.nav_ids) == 7
 
     def test_navigation_switches_panels(self, qapp, tmp_path):
         from src.desktop import IFMMainWindow, IFMController, init_app_theme
         init_app_theme(qapp, mode="dark", rtl=True)
         c = IFMController(base_dir=tmp_path, ruleset_path=None)
         w = IFMMainWindow(controller=c, base_dir=str(tmp_path))
-        # النقر على "rules" في الـ sidebar
+        # النقر على "rules" في الـ sidebar — الآن في الفهرس 2 (بعد inventory=0, preview=1)
         w.sidebar._buttons["rules"].click()
         _process_events(qapp)
-        assert w.stack.currentIndex() == 1
-        # النقر على "action_log"
+        assert w.stack.currentIndex() == 2
+        # النقر على "action_log" — الفهرس 3
         w.sidebar._buttons["action_log"].click()
         _process_events(qapp)
-        assert w.stack.currentIndex() == 2
+        assert w.stack.currentIndex() == 3
 
     def test_full_workflow_e2e(self, qapp, tmp_with_files, default_ruleset_path):
         from src.desktop import IFMMainWindow, IFMController, init_app_theme
