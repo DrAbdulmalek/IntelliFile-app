@@ -103,7 +103,8 @@ class TestHybridSearchEngine:
         assert "محتوى طبي عربي" in text
 
     def test_extract_text_pdf_missing(self, tmp_path):
-        # Non-existent PDF should return filename
+        # Non-existent PDF should return empty string (was: filename, which
+        # indexed filenames as document text — see PR #39 Kimi review fix).
         engine = HybridSearchEngine()
         text = engine._extract_text(str(tmp_path / "nonexistent.pdf"))
-        assert "nonexistent.pdf" in text
+        assert text == ""
