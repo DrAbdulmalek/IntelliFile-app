@@ -1,5 +1,6 @@
 """اختبارات مساعد الملفات الذكي (File Copilot)"""
 import pytest
+from unittest.mock import patch, MagicMock
 from src.core.file_copilot import FileCopilot, Conversation, Message
 
 
@@ -93,3 +94,26 @@ class TestFileCopilot:
         copilot = FileCopilot()
         summary = copilot.summarize_file("/nonexistent/file.pdf")
         assert "خطأ" in summary or "غير" in summary
+
+    def test_generate_returns_clear_message_when_ollama_not_running(self):
+        """When Ollama is not reachable on port 11434, _generate should fail fast
+        with a clear Arabic message instead of waiting for the import + chat timeout."""
+        copilot = FileCopilot()
+        # Mock socket.connect_ex to simulate Ollama being down (non-zero return)
+        with patch("socket.socket") as mock_socket_cls:
+            mock_sock = MagicMock()
+            mock_sock.connect_ex.return_value = 111  # ECONNREFUSED
+            mock_socket_cls.return_value = mock_sock
+            result = copilot._generate("ما هو السكري؟", context="")
+            assert "Ollama غير مشغّل" in result or "11434" in result
+
+    def test_generate_returns_context_when_ollama_down_but_context_present(self):
+        """If Ollama is down but we have retrieved context, the response should
+        include that context so the user sees something useful."""
+        copilot = FileCopilot()
+        with patch("socket.socket") as mock_socket_cls:
+            mock_sock = MagicMock()
+            mock_sock.connect_ex.return_value = 111  # ECONNREFUSED
+            mock_socket_cls.return_value = mock_sock
+            result = copilot._generate("ما هو السكري؟", context="السكري مرض مزمن")
+            assert "السكري مرض مزمن" in result
