@@ -334,7 +334,7 @@ class HybridSearchEngine:
                     pass
         except Exception as exc:
             logger.debug(f"لا يمكن قراءة {filepath}: {exc}")
-        return path.name
+        return ""  # was: path.name — indexing filenames as text is wrong
 
     def save_index(self, path: str):
         """Save the BM25 + semantic index to disk."""
