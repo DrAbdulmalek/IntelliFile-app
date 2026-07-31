@@ -7,7 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
-## [2.2.0] — 2026-07-25
+## [Unreleased] — 2.2.0-dev
+
+> The work below is merged to `main` but **not yet tagged `v2.2.0`**.
+> The latest released tag is `v2.1.0`. The `2.2.0.dev0` version in
+> `setup.py` reflects this pre-release state. Tag `v2.2.0` only after
+> completing `docs/RELEASE_CHECKLIST_v2.2.0.md`.
 
 ### Desktop UX (Phase C Complete)
 

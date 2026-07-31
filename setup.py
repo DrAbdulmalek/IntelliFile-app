@@ -2,7 +2,12 @@ from setuptools import setup, find_packages
 
 setup(
     name="intellifile",
-    version="2.2.0",
+    # Pre-release marker: work described in CHANGELOG [2.2.0] is complete on
+    # main but no v2.2.0 git tag has been cut yet. PEP 440 dev suffix keeps
+    # pip / installers honest about this state. Tag v2.2.0 and bump to
+    # "2.2.0" only when the release checklist (docs/RELEASE_CHECKLIST_v2.2.0.md)
+    # is fully ticked.
+    version="2.2.0.dev0",
     description="تطبيق إدارة الملفات الذكي المحلي — Hybrid Search + Smart Tags + File Copilot + NER",
     author="Dr. Abdulmalek",
     packages=find_packages(),
