@@ -13,6 +13,7 @@ Features:
 from __future__ import annotations
 
 import logging
+import socket
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -274,6 +275,26 @@ class FileCopilot:
 
     def _generate(self, query: str, context: str) -> str:
         """Generate a response using Ollama with file context."""
+        # Pre-check: is Ollama actually reachable? Fail fast with a clear message
+        # instead of waiting for the import + Client.chat() timeout.
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(2)
+            result = sock.connect_ex(("127.0.0.1", 11434))
+            sock.close()
+            if result != 0:
+                if context:
+                    return (
+                        "Ollama غير مشغّل على المنفذ 11434. "
+                        "تم العثور على محتوى ذي صلة في الملفات:\n\n"
+                        f"{context[:1000]}"
+                    )
+                return "Ollama غير مشغّل على المنفذ 11434. شغّله ثم أعد المحاولة."
+        except Exception:
+            # If the pre-check itself fails, fall through to the import-based path
+            # below, which has its own ImportError / Exception handlers.
+            pass
+
         system_prompt = (
             "أنت مساعد ذكي لإدارة الملفات الطبية. يمكنك:\n"
             "1. الإجابة عن أسئلة المستخدم بناءً على محتوى ملفاته\n"
