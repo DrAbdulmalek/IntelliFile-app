@@ -34,14 +34,14 @@ jobs:
         run: sudo apt-get update -qq && sudo apt-get install -y -qq autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev libtinfo5 cmake libffi-dev libssl-dev libltdl-dev libbz2-dev libreadline-dev libsqlite3-dev wget curl llvm libblas-dev liblapack-dev gfortran libjpeg-dev libpng-dev libfreetype6-dev patchelf
 
       - name: Cache Buildozer global
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.buildozer
           key: buildozer-global-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
           restore-keys: buildozer-global-${{ runner.os }}-
 
       - name: Cache Buildozer Android
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .buildozer
           key: buildozer-android-${{ runner.os }}-${{ hashFiles('buildozer.spec') }}
