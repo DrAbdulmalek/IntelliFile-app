@@ -50,6 +50,25 @@ The system runs as a FastAPI service with a Next.js web interface and an optiona
 
 ---
 
+## Product Scope | نطاق المنتج
+
+IntelliFile is a **general-purpose local-first desktop file manager** for
+personal use. The supported surfaces are:
+
+- **FastAPI service** (backend)
+- **PySide6 desktop GUI** (primary user-facing surface)
+- **Next.js web UI** (optional companion)
+
+The `mobile/` directory and `buildozer.spec` are **experimental and not
+part of the product core** — see [`mobile/README.md`](mobile/README.md).
+Android / Kivy is not the product direction for the foreseeable future.
+
+IntelliFile is **not** a medical tool. Any medical-specific classification
+logic that may exist in the codebase is unintended scope and is being
+tracked separately.
+
+---
+
 ## Features | المميزات
 
 ### 🔍 Hybrid Search | البحث الهجين

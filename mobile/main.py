@@ -1,4 +1,11 @@
-"""IntelliFile Manager — Kivy Mobile App (Android APK)
+"""⚠️ EXPERIMENTAL — NOT PART OF PRODUCT CORE.
+
+IntelliFile Manager — Kivy Mobile App (Android APK)
+
+This module is kept for historical reference and exploration. It is NOT
+actively maintained, NOT tested in CI, and NOT a release target.
+IntelliFile is a desktop-first local file manager; Android/Kivy is NOT
+the product direction. See mobile/README.md for the full status note.
 
 A mobile-first thin client for IntelliFile Manager with Arabic RTL support.
 Connects to the FastAPI backend when available, works offline otherwise.

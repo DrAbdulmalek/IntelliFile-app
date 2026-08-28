@@ -1,3 +1,9 @@
+# ⚠️ EXPERIMENTAL — NOT PART OF PRODUCT CORE
+# This file is kept for historical reference only. IntelliFile is a
+# desktop-first local file manager. Android/Kivy is NOT the product
+# direction. See mobile/README.md for details. Do NOT rely on this
+# spec for releases.
+
 [app]
 title = IntelliFile Manager
 package.name = intellifile
